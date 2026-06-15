@@ -24,7 +24,12 @@ import {
   MessageCircle,
   User,
   Star,
+  Utensils,
+  Clock,
+  ChevronRight,
 } from "lucide-react";
+
+type OrderType = "dine-in" | "takeaway" | "delivery";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -168,7 +173,7 @@ function LiffApp() {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [cartDrawer, setCartDrawer] = useState(false);
-  const [deliveryMode, setDeliveryMode] = useState<"dinein" | "delivery">("delivery");
+  const [orderType, setOrderType] = useState<OrderType>("delivery");
   const [showSuccess, setShowSuccess] = useState(false);
 
   const totalQty = cart.reduce((s, l) => s + l.qty, 0);
@@ -205,8 +210,8 @@ function LiffApp() {
           {tab === "home" && (
             <HomeScreen
               onOpenSidebar={() => setSidebar(true)}
-              deliveryMode={deliveryMode}
-              setDeliveryMode={setDeliveryMode}
+              orderType={orderType}
+              setOrderType={setOrderType}
               onPickItem={(it) => setSelectedItem(it)}
               onOpenCart={() => setCartDrawer(true)}
               totalQty={totalQty}
@@ -320,8 +325,8 @@ function LiffApp() {
 // ─────────────────────────────────────────────────────────────
 function HomeScreen({
   onOpenSidebar,
-  deliveryMode,
-  setDeliveryMode,
+  orderType,
+  setOrderType,
   onPickItem,
   onOpenCart,
   totalQty,
@@ -329,8 +334,8 @@ function HomeScreen({
   onOpenMenu,
 }: {
   onOpenSidebar: () => void;
-  deliveryMode: "dinein" | "delivery";
-  setDeliveryMode: (m: "dinein" | "delivery") => void;
+  orderType: OrderType;
+  setOrderType: (m: OrderType) => void;
   onPickItem: (m: MenuItem) => void;
   onOpenCart: () => void;
   totalQty: number;
@@ -371,29 +376,39 @@ function HomeScreen({
           <p className="text-sm text-white/80 mt-1">เลือกประสบการณ์การรับประทาน</p>
         </div>
 
-        {/* Delivery toggle floating */}
+        {/* Order type segmented control floating */}
         <div className="absolute -bottom-6 left-5 right-5">
-          <div className="bg-white rounded-2xl shadow-lift p-1.5 flex">
-            {[
-              { id: "dinein", label: "กินที่ร้าน" },
-              { id: "delivery", label: "จัดส่งนอกสถานที่" },
-            ].map((m) => {
-              const active = deliveryMode === m.id;
+          <div
+            className="rounded-full p-1 flex backdrop-blur-md border border-white/40 shadow-lift"
+            style={{ background: "rgba(255,255,255,0.85)" }}
+          >
+            {(
+              [
+                { id: "dine-in", label: "กินที่ร้าน" },
+                { id: "takeaway", label: "รับกลับบ้าน" },
+                { id: "delivery", label: "จัดส่ง" },
+              ] as { id: OrderType; label: string }[]
+            ).map((m) => {
+              const active = orderType === m.id;
               return (
                 <button
                   key={m.id}
-                  onClick={() => setDeliveryMode(m.id as "dinein" | "delivery")}
-                  className="relative flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors"
+                  onClick={() => setOrderType(m.id)}
+                  className="relative flex-1 py-2.5 text-[13px] rounded-full transition-colors"
                   style={{
-                    color: active ? GOLD : BRAND,
+                    color: active ? GOLD : INK_MUTED,
+                    fontWeight: active ? 700 : 500,
                   }}
                 >
                   {active && (
                     <motion.div
-                      layoutId="seg"
-                      className="absolute inset-0 rounded-xl"
-                      style={{ background: BRAND }}
-                      transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                      layoutId="activeTabBackground"
+                      className="absolute inset-0 rounded-full"
+                      style={{
+                        background: BRAND,
+                        boxShadow: "0 8px 20px -6px rgba(0,46,71,0.45)",
+                      }}
+                      transition={{ type: "spring", stiffness: 400, damping: 32 }}
                     />
                   )}
                   <span className="relative">{m.label}</span>
@@ -404,8 +419,44 @@ function HomeScreen({
         </div>
       </div>
 
+      {/* Conditional input for order type */}
+      <div className="px-5 mt-10">
+        <AnimatePresence mode="wait">
+          <motion.button
+            key={orderType}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="w-full bg-white rounded-2xl px-4 py-3.5 flex items-center gap-3 shadow-soft border border-[#ece4d6]"
+          >
+            <div
+              className="grid h-10 w-10 place-items-center rounded-full shrink-0"
+              style={{ background: LINEN, color: BRAND }}
+            >
+              {orderType === "delivery" && <MapPin size={18} />}
+              {orderType === "dine-in" && <Utensils size={18} />}
+              {orderType === "takeaway" && <Clock size={18} />}
+            </div>
+            <div className="flex-1 min-w-0 text-left">
+              <p className="text-[10px] uppercase tracking-[0.18em]" style={{ color: INK_MUTED }}>
+                {orderType === "delivery" && "Delivery"}
+                {orderType === "dine-in" && "Dine-in"}
+                {orderType === "takeaway" && "Takeaway"}
+              </p>
+              <p className="text-sm font-semibold truncate" style={{ color: BRAND }}>
+                {orderType === "delivery" && "จัดส่งที่: ระบุที่อยู่ของคุณ"}
+                {orderType === "dine-in" && "ระบุหมายเลขโต๊ะของคุณ"}
+                {orderType === "takeaway" && "รับอาหารเวลา: ด่วนที่สุด (15 นาที)"}
+              </p>
+            </div>
+            <ChevronRight size={18} style={{ color: INK_MUTED }} />
+          </motion.button>
+        </AnimatePresence>
+      </div>
+
       {/* Categories */}
-      <div className="mt-10 px-5">
+      <div className="mt-6 px-5">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold" style={{ color: BRAND }}>
             หมวดหมู่
