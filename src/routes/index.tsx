@@ -521,11 +521,16 @@ function HomeScreen({
   subtotal: number;
   onOpenMenu: () => void;
 }) {
-  const [cat, setCat] = useState("all");
-  const items = useMemo(
-    () => (cat === "all" ? MENU : MENU.filter((m) => m.category === cat)),
-    [cat],
-  );
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scroll = (direction: "left" | "right") => {
+    if (scrollRef.current) {
+      const scrollAmount = 240; // width of card (220px) + gap (16px)
+      scrollRef.current.scrollBy({
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  };
 
   const [selectedTable, setSelectedTable] = useState("");
   const [showTablePicker, setShowTablePicker] = useState(false);
@@ -577,7 +582,8 @@ function HomeScreen({
           <p className="text-sm text-white/80 mt-1">เลือกประสบการณ์การรับประทาน</p>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="inline-flex rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-semibold text-emerald-400 border border-emerald-500/35 backdrop-blur-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
                 เปิดบริการ
               </span>
               <span className="text-sm font-medium text-white/90">10:00 - 22:00</span>
@@ -657,45 +663,34 @@ function HomeScreen({
         </AnimatePresence>
       </div>
 
-      {/* Categories */}
-      <div className="mt-6 px-5">
+      {/* Menu list (horizontal slider) */}
+      <div className="px-5 mt-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold" style={{ color: BRAND }}>
-            หมวดหมู่
+            เมนูแนะนำ
           </h2>
-          <button onClick={onOpenMenu} className="text-xs font-medium" style={{ color: INK_MUTED }}>
-            ดูทั้งหมด →
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => scroll("left")}
+              className="grid h-8 w-8 place-items-center rounded-full bg-white border border-[#ece4d6] hover:bg-slate-50 transition shadow-sm"
+              style={{ color: BRAND }}
+              aria-label="เลื่อนซ้าย"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              onClick={() => scroll("right")}
+              className="grid h-8 w-8 place-items-center rounded-full bg-white border border-[#ece4d6] hover:bg-slate-50 transition shadow-sm"
+              style={{ color: BRAND }}
+              aria-label="เลื่อนขวา"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
-        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-5 px-5">
-          {CATEGORIES.map((c) => {
-            const active = c.id === cat;
-            return (
-              <button
-                key={c.id}
-                onClick={() => setCat(c.id)}
-                className="shrink-0 px-4 py-2 rounded-full text-sm font-medium border transition-all"
-                style={{
-                  background: active ? BRAND : "white",
-                  color: active ? GOLD : BRAND,
-                  borderColor: active ? BRAND : "#ece4d6",
-                }}
-              >
-                {c.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Menu list (horizontal slider) */}
-      <div className="px-5 mt-5">
-        <h2 className="text-lg font-bold mb-3" style={{ color: BRAND }}>
-          เมนูแนะนำ
-        </h2>
-        <div className="-mx-5 px-5 overflow-x-auto no-scrollbar">
+        <div ref={scrollRef} className="-mx-5 px-5 overflow-x-auto no-scrollbar scroll-smooth">
           <div className="flex gap-4">
-            {items.map((m, i) => (
+            {MENU.map((m, i) => (
               <motion.div
                 key={m.id}
                 initial={{ opacity: 0, y: 12 }}
@@ -797,6 +792,17 @@ function TablePickerBottomSheet({
       e.preventDefault();
     }
   };
+
+  const sortedTables = useMemo(() => {
+    return [...tables].sort((a, b) => {
+      const aReserved = a.status === "reserved";
+      const bReserved = b.status === "reserved";
+      if (aReserved && !bReserved) return 1;
+      if (!aReserved && bReserved) return -1;
+      return 0;
+    });
+  }, [tables]);
+
   return (
     <>
       <motion.div
@@ -837,15 +843,16 @@ function TablePickerBottomSheet({
           </button>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          {tables.map((table) => {
+          {sortedTables.map((table) => {
             const available = table.status === "available";
+            const isReserved = table.status === "reserved";
             const statusLabel = table.status === "available" ? "ว่าง" : table.status === "occupied" ? "ไม่ว่าง" : "จองแล้ว";
             const statusStyle: React.CSSProperties =
               table.status === "available"
                 ? { background: "#dcfce7", color: "#065f46", padding: "4px 8px", borderRadius: 9999, fontSize: 11, fontWeight: 700 }
                 : table.status === "occupied"
                 ? { background: "#fee2e2", color: "#7f1d1d", padding: "4px 8px", borderRadius: 9999, fontSize: 11, fontWeight: 700 }
-                : { background: "#fff7ed", color: "#92400e", padding: "4px 8px", borderRadius: 9999, fontSize: 11, fontWeight: 700 };
+                : { background: "#fee2e2", color: "#b91c1c", padding: "4px 8px", borderRadius: 9999, fontSize: 11, fontWeight: 700 };
 
             return (
               <button
@@ -854,9 +861,22 @@ function TablePickerBottomSheet({
                 onClick={() => available && onSelect(table.id)}
                 className="rounded-3xl p-4 text-left border transition"
                 style={{
-                  background: selectedTable === table.id ? BRAND : available ? "#f8fafc" : "#f5f5f5",
+                  background: selectedTable === table.id 
+                    ? BRAND 
+                    : isReserved 
+                    ? "#fef2f2" 
+                    : available 
+                    ? "#f8fafc" 
+                    : "#f5f5f5",
                   color: selectedTable === table.id ? GOLD : "#0f172a",
-                  borderColor: selectedTable === table.id ? BRAND : available ? "#e2e8f0" : "#d1d5db",
+                  borderColor: selectedTable === table.id 
+                    ? BRAND 
+                    : isReserved 
+                    ? "#ef4444" 
+                    : available 
+                    ? "#e2e8f0" 
+                    : "#d1d5db",
+                  borderWidth: isReserved ? "2px" : "1px",
                 }}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -873,7 +893,7 @@ function TablePickerBottomSheet({
           <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">
             <span style={{ background: "#dcfce7", color: "#065f46", padding: "6px 10px", borderRadius: 9999, fontWeight: 700 }}>ว่าง</span>
             <span style={{ background: "#fee2e2", color: "#7f1d1d", padding: "6px 10px", borderRadius: 9999, fontWeight: 700 }}>ไม่ว่าง</span>
-            <span style={{ background: "#fff7ed", color: "#92400e", padding: "6px 10px", borderRadius: 9999, fontWeight: 700 }}>จองแล้ว</span>
+            <span style={{ background: "#fee2e2", color: "#b91c1c", padding: "6px 10px", borderRadius: 9999, fontWeight: 700 }}>จองแล้ว</span>
           </div>
         </div>
       </motion.div>
