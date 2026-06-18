@@ -47,8 +47,8 @@
 
 ### 1. โคลนโปรเจกต์
 ```bash
-git clone https://github.com/SvechaZ/ran-lung-get.git
-cd ran-lung-get
+git clone <project>
+cd <project>
 ```
 
 ### 2. ติดตั้ง Dependencies
@@ -60,7 +60,7 @@ npm install
 ```bash
 npm run dev
 ```
-แอปพลิเคชันจะรันและเข้าถึงได้ผ่านเบราว์เซอร์ที่: **`http://localhost:8080/`** (หรือตามพอร์ตที่ระบุใน Terminal)
+
 
 ### 4. การ Build สำหรับ Production
 ```bash
