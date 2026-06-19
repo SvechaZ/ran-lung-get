@@ -78,9 +78,9 @@ const MENU: MenuItem[] = [
     image: '/meal/krapao.jpg',
     category: "signature",
     options: [
-      { id: "spicy", name: "ระดับความเผ็ด", choices: [ { id: "0", label: "ไม่เผ็ด" }, { id: "1", label: "เผ็ดน้อย" }, { id: "2", label: "เผ็ดกลาง" }, { id: "3", label: "เผ็ดมาก" } ] }
+      { id: "spicy", name: "ระดับความเผ็ด", choices: [{ id: "0", label: "ไม่เผ็ด" }, { id: "1", label: "เผ็ดน้อย" }, { id: "2", label: "เผ็ดกลาง" }, { id: "3", label: "เผ็ดมาก" }] }
     ],
-    addons: [ { id: "egg", name: "ไข่ดาว", price: 10 }, { id: "bacon", name: "หมูกรอบ", price: 20 } ],
+    addons: [{ id: "egg", name: "ไข่ดาว", price: 10 }, { id: "bacon", name: "หมูกรอบ", price: 20 }],
   },
   {
     id: "m_pad_nam_prik_pao",
@@ -89,7 +89,7 @@ const MENU: MenuItem[] = [
     price: 65,
     image: '/meal/pad_tua_sea.jpg',
     category: "signature",
-    addons: [ { id: "egg", name: "ไข่ดาว", price: 10 } ],
+    addons: [{ id: "egg", name: "ไข่ดาว", price: 10 }],
   },
   {
     id: "m_pad_nam_oil",
@@ -187,7 +187,122 @@ const MENU: MenuItem[] = [
     image: '/meal/shaved_ice.jpg',
     category: "dessert",
   },
+  {
+    id: "m_krapao_crispy_pork",
+    name: "กระเพราหมูกรอบ (ข้าวราด)",
+    desc: "กระเพราหมูกรอบหนังสามชั้นกรอบนอกนุ่มใน ผัดใบกระเพราแท้รสจัดจ้าน เสิร์ฟราดข้าวหอมมะลิร้อนๆ",
+    price: 70,
+    image: '/meal/krapao.jpg',
+    category: "signature",
+    addons: [{ id: "egg", name: "ไข่ดาว", price: 10 }],
+  },
+  {
+    id: "m_kana_crispy_pork",
+    name: "ผัดคะน้าหมูกรอบ (ข้าวราด)",
+    desc: "ผัดคะน้าใบเขียวสดกรอบกับหมูกรอบสามชั้น ปรุงรสกลมกล่อม ราดข้าวหอมมะลิร้อนๆ",
+    price: 70,
+    image: '/meal/pad_pak.jpg',
+    category: "main",
+    addons: [{ id: "egg", name: "ไข่ดาว", price: 10 }],
+  },
+  {
+    id: "m_prik_gaeng_crispy_pork",
+    name: "ผัดพริกแกงหมูกรอบ (ข้าวราด)",
+    desc: "พริกแกงรสเข้มข้นผัดคลุกเคล้ากับหมูกรอบและถั่วฝักยาว ราดข้าวหอมมะลิร้อนๆ",
+    price: 70,
+    image: '/meal/pad_tua_sea.jpg',
+    category: "main",
+    addons: [{ id: "egg", name: "ไข่ดาว", price: 10 }],
+  },
+  {
+    id: "m_garlic_sliced_pork",
+    name: "กระเทียมพริกไทยหมูชิ้น (ข้าวราด)",
+    desc: "หมูชิ้นนุ่มๆ ผัดซอสกระเทียมพริกไทยรสเข้มข้น หอมกระเทียมเจียว ราดข้าว",
+    price: 60,
+    image: '/meal/khao_moo_garlic.jpg',
+    category: "main",
+    addons: [{ id: "egg", name: "ไข่ดาว", price: 10 }],
+  },
+  {
+    id: "m_pong_kari_sea",
+    name: "ผัดผงกะหรี่ทะเล (ข้าวราด)",
+    desc: "เนื้อกุ้งและปลาหมึกสดผัดผงกะหรี่เข้มข้น ไข่นุ่มละมุนลิ้น ราดข้าวหอมมะลิ",
+    price: 70,
+    image: '/meal/pad_pong_gari.jpg',
+    category: "signature",
+    addons: [{ id: "egg", name: "ไข่ดาว", price: 10 }],
+  },
+  {
+    id: "m_khua_prik_beef",
+    name: "คั่วพริกแกงเนื้อ (ข้าวราด)",
+    desc: "เนื้อวัวเกรดดีผัดคั่วพริกแกงตำมือ รสจัดจ้านถึงใจ สมุนไพรไทยครบเครื่อง ราดข้าว",
+    price: 60,
+    image: '/meal/pad_tua_sea.jpg',
+    category: "main",
+    addons: [{ id: "egg", name: "ไข่ดาว", price: 10 }],
+  },
+  {
+    id: "m_see_ew_crispy_pork",
+    name: "ผัดซีอิ๊วเส้นใหญ่หมูกรอบ",
+    desc: "เส้นใหญ่เหนียวนุ่มผัดซีอิ๊วดำหอมกลิ่นกระทะ คลุกเคล้ากับหมูกรอบและคะน้าสด",
+    price: 75,
+    image: '/meal/pad_see_ew.jpg',
+    category: "noodles",
+  },
+  {
+    id: "m_mama_prik_gaeng_shrimp",
+    name: "มาม่าผัดคั่วพริกแกงกุ้ง",
+    desc: "เส้นมาม่าเหนียวนุ่มผัดซอสพริกแกงเข้มข้นและกุ้งสดเด้งๆ สมุนไพรหอมกรุ่น",
+    price: 65,
+    image: '/meal/pad_tua_sea.jpg',
+    category: "noodles",
+  },
+  {
+    id: "m_prik_pao_clam",
+    name: "ผัดพริกเผาหอยลาย (ข้าวราด)",
+    desc: "หอยลายสดผัดน้ำพริกเผาสูตรเด็ด รสชาติหวานเค็มเผ็ดลงตัว หอมใบโหระพา ราดข้าว",
+    price: 60,
+    image: '/meal/pad_tua_sea.jpg',
+    category: "main",
+    addons: [{ id: "egg", name: "ไข่ดาว", price: 10 }],
+  },
+  {
+    id: "m_pad_pak_no_meat",
+    name: "ผัดผักรวมมิตร (ข้าวราด / มังสวิรัติ)",
+    desc: "ผัดผักสดรวมมิตรรสชาติเบาๆ สุขภาพดี ปรุงด้วยซีอิ๊วขาวและน้ำมันหอยสูตรเจ ราดข้าว",
+    price: 50,
+    image: '/meal/pad_pak.jpg',
+    category: "vegetarian",
+  },
 ];
+
+const PROTEINS = [
+  { id: "p_minced_pork", name: "หมูสับ", price: 0 },
+  { id: "p_crispy_pork", name: "หมูกรอบ", price: 20 },
+  { id: "p_sliced_pork", name: "หมูชิ้น", price: 10 },
+  { id: "p_minced_chicken", name: "ไก่สับ", price: 0 },
+  { id: "p_boiled_chicken", name: "ไก่ต้ม", price: 0 },
+  { id: "p_beef", name: "เนื้อ", price: 10 },
+  { id: "p_squid", name: "หมึก", price: 10 },
+  { id: "p_shrimp", name: "กุ้ง", price: 10 },
+  { id: "p_clam", name: "หอยลาย", price: 10 },
+  { id: "p_no_meat", name: "ไม่เอาเนื้อสัตว์", price: 0 }
+];
+
+const TOPPINGS = [
+  { id: "t_sausage", name: "ไส้กรอก", price: 10 },
+  { id: "t_chinese_sausage", name: "กุนเชียง", price: 10 },
+  { id: "t_soft_boiled_egg", name: "ไข่ดาวไม่สุก", price: 10 },
+  { id: "t_fried_egg", name: "ไข่ดาวสุก", price: 10 },
+  { id: "t_boiled_egg", name: "ไข่ต้ม", price: 10 },
+  { id: "t_omelet", name: "ไข่เจียว", price: 10 }
+];
+
+const SIZES = [
+  { id: "s_regular", name: "ธรรมดา", price: 0 },
+  { id: "s_special", name: "พิเศษ", price: 10 }
+];
+
 
 const CATEGORIES = [
   { id: "all", label: "ทั้งหมด" },
@@ -230,7 +345,7 @@ const SURFACE = "#f8fafc";
 // ─────────────────────────────────────────────────────────────
 function LiffApp() {
   const [tab, setTab] = useState<"home" | "status">("home");
-  const [overlay, setOverlay] = useState<null | "menu" | "orderConfirm" | "payment" | "history">(null);
+  const [overlay, setOverlay] = useState<null | "menu" | "orderConfirm" | "payment" | "history" | "contact">(null);
   const [sidebar, setSidebar] = useState(false);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
@@ -404,6 +519,12 @@ function LiffApp() {
               onBack={() => setOverlay(null)}
             />
           )}
+          {overlay === "contact" && (
+            <ContactOverlay
+              key="contact"
+              onBack={() => setOverlay(null)}
+            />
+          )}
         </AnimatePresence>
 
         <AnimatePresence>
@@ -431,6 +552,7 @@ function LiffApp() {
                 setSidebar(false);
                 if (t === "home" || t === "status") setTab(t);
                 if (t === "history") setOverlay("history");
+                if (t === "contact") setOverlay("contact");
               }}
               orderHistory={orderHistory}
             />
@@ -777,42 +899,42 @@ function HomeScreen({
 
       {/* Order type tiles */}
       <div className="px-5 mt-4">
-          <h3 className="text-sm font-medium mb-3" style={{ color: BRAND }}>ช่องทางการรับอาหาร</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => {
-                setOrderType("dine-in");
-                setShowTablePicker(true);
-              }}
-              className="rounded-xl p-4 text-left flex flex-col gap-2"
-              style={{ background: orderType === "dine-in" ? BRAND : "white", color: orderType === "dine-in" ? GOLD : BRAND }}
-            >
-              <div className="flex items-center justify-between">
-                <div className="grid h-10 w-10 place-items-center rounded-md" style={{ background: orderType === "dine-in" ? "rgba(252,193,74,0.12)" : LINEN, color: orderType === "dine-in" ? GOLD : BRAND }}>
-                  <Utensils size={18} />
-                </div>
+        <h3 className="text-sm font-medium mb-3" style={{ color: BRAND }}>ช่องทางการรับอาหาร</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => {
+              setOrderType("dine-in");
+              setShowTablePicker(true);
+            }}
+            className="rounded-xl p-4 text-left flex flex-col gap-2"
+            style={{ background: orderType === "dine-in" ? BRAND : "white", color: orderType === "dine-in" ? GOLD : BRAND }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="grid h-10 w-10 place-items-center rounded-md" style={{ background: orderType === "dine-in" ? "rgba(252,193,74,0.12)" : LINEN, color: orderType === "dine-in" ? GOLD : BRAND }}>
+                <Utensils size={18} />
               </div>
-              <div className="font-semibold">ทานที่ร้าน</div>
-              {orderType === "dine-in" && <div className="text-xs">เลือกโต๊ะและเชื่อมต่อ QR</div>}
-            </button>
+            </div>
+            <div className="font-semibold">ทานที่ร้าน</div>
+            {orderType === "dine-in" && <div className="text-xs">เลือกโต๊ะและเชื่อมต่อ QR</div>}
+          </button>
 
-            <button
-              onClick={() => setOrderType("delivery")}
-              className="rounded-xl p-4 text-left flex flex-col gap-2"
-              style={{ background: orderType === "delivery" ? "#f7fafb" : "white", border: `1px solid ${orderType === "delivery" ? BRAND : "#ece4d6"}`, color: BRAND }}
-            >
-              <div className="flex items-center justify-between">
-                <div className="grid h-10 w-10 place-items-center rounded-md" style={{ background: LINEN, color: BRAND }}>
-                  <Bike size={18} />
-                </div>
+          <button
+            onClick={() => setOrderType("delivery")}
+            className="rounded-xl p-4 text-left flex flex-col gap-2"
+            style={{ background: orderType === "delivery" ? "#f7fafb" : "white", border: `1px solid ${orderType === "delivery" ? BRAND : "#ece4d6"}`, color: BRAND }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="grid h-10 w-10 place-items-center rounded-md" style={{ background: LINEN, color: BRAND }}>
+                <Bike size={18} />
               </div>
-              <div className="font-semibold">จัดส่งถึงที่</div>
-              {orderType === "delivery" && <div className="text-xs">กรอกที่อยู่เพื่อจัดส่ง</div>}
-            </button>
-          </div>
-
-          
+            </div>
+            <div className="font-semibold">จัดส่งถึงที่</div>
+            {orderType === "delivery" && <div className="text-xs">กรอกที่อยู่เพื่อจัดส่ง</div>}
+          </button>
         </div>
+
+
+      </div>
 
       {/* Conditional input for order type */}
       <div className="px-5 mt-6">
@@ -909,22 +1031,22 @@ function HomeScreen({
 
 
       {/* Inline cart removed — using fixed cart bar inside app frame */}
-          {/* Persistent CTA when cart empty */}
+      {/* Persistent CTA when cart empty */}
 
-          <AnimatePresence>
-            {showTablePicker && (
-              <TablePickerBottomSheet
-                tables={tables}
-                selectedTable={selectedTable}
-                onSelect={(tableId) => {
-                  setSelectedTable(tableId);
-                  setShowTablePicker(false);
-                }}
-                onClose={() => setShowTablePicker(false)}
-              />
-            )}
-          </AnimatePresence>
-        </div>
+      <AnimatePresence>
+        {showTablePicker && (
+          <TablePickerBottomSheet
+            tables={tables}
+            selectedTable={selectedTable}
+            onSelect={(tableId) => {
+              setSelectedTable(tableId);
+              setShowTablePicker(false);
+            }}
+            onClose={() => setShowTablePicker(false)}
+          />
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -1025,25 +1147,25 @@ function TablePickerBottomSheet({
               available
                 ? { background: "#bbf7d0", color: "#14532d", padding: "4px 8px", borderRadius: 9999, fontSize: 11, fontWeight: 700 }
                 : isOccupied
-                ? { background: "#fecaca", color: "#7f1d1d", padding: "4px 8px", borderRadius: 9999, fontSize: 11, fontWeight: 700 }
-                : { background: "#fde68a", color: "#78350f", padding: "4px 8px", borderRadius: 9999, fontSize: 11, fontWeight: 700 };
+                  ? { background: "#fecaca", color: "#7f1d1d", padding: "4px 8px", borderRadius: 9999, fontSize: 11, fontWeight: 700 }
+                  : { background: "#fde68a", color: "#78350f", padding: "4px 8px", borderRadius: 9999, fontSize: 11, fontWeight: 700 };
 
             // Light pastel background + dark border per status
             const boxBg = selectedTable === table.id
               ? BRAND
               : available
-              ? "#dcfce7"   // green-100
-              : isOccupied
-              ? "#fee2e2"   // red-100
-              : "#fef9c3";  // yellow-100 for reserved
+                ? "#dcfce7"   // green-100
+                : isOccupied
+                  ? "#fee2e2"   // red-100
+                  : "#fef9c3";  // yellow-100 for reserved
 
             const boxBorder = selectedTable === table.id
               ? BRAND
               : available
-              ? "#15803d"   // green-700
-              : isOccupied
-              ? "#dc2626"   // red-600
-              : "#d97706";  // amber-600 for reserved
+                ? "#15803d"   // green-700
+                : isOccupied
+                  ? "#dc2626"   // red-600
+                  : "#d97706";  // amber-600 for reserved
 
             const boxText = selectedTable === table.id ? GOLD : available ? "#14532d" : isOccupied ? "#7f1d1d" : "#78350f";
             const boxSubText = selectedTable === table.id ? "rgba(252,193,74,0.7)" : available ? "#166534" : isOccupied ? "#991b1b" : "#92400e";
@@ -1101,14 +1223,122 @@ function ItemModal({
     item.options?.forEach((g) => (o[g.id] = g.choices[0].id));
     return o;
   });
-  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([]); // For drinks/desserts
   const [note, setNote] = useState("");
 
-  const addonTotal = (item.addons ?? [])
-    .filter((a) => selectedAddons.includes(a.id))
-    .reduce((s, a) => s + a.price, 0);
-  const unit = item.price + addonTotal;
-  const total = unit * qty;
+  const isFood = item.category !== "drinks" && item.category !== "dessert";
+
+  // Dynamic default protein selection based on item name
+  const defaultProteinId = useMemo(() => {
+    if (!isFood) return "";
+    const found = PROTEINS.find((p) => p.name !== "ไม่เอาเนื้อสัตว์" && item.name.includes(p.name));
+    return found ? found.id : "p_minced_pork";
+  }, [item.name, isFood]);
+
+  const [protein, setProtein] = useState(defaultProteinId);
+  const [size, setSize] = useState("s_regular");
+  const [selectedToppings, setSelectedToppings] = useState<string[]>([]);
+
+  // Calculate base price excluding default protein price
+  const basePrice = useMemo(() => {
+    if (!isFood) return item.price;
+    const defaultProtein = PROTEINS.find((p) => p.id === defaultProteinId);
+    const defaultProteinPrice = defaultProtein ? defaultProtein.price : 0;
+    return Math.max(0, item.price - defaultProteinPrice);
+  }, [item.price, defaultProteinId, isFood]);
+
+  // Total unit price
+  const unitPrice = useMemo(() => {
+    if (!isFood) {
+      const addonTotal = (item.addons ?? [])
+        .filter((a) => selectedAddons.includes(a.id))
+        .reduce((s, a) => s + a.price, 0);
+      return item.price + addonTotal;
+    }
+
+    const proteinItem = PROTEINS.find((p) => p.id === protein);
+    const proteinPrice = proteinItem ? proteinItem.price : 0;
+
+    const sizeItem = SIZES.find((s) => s.id === size);
+    const sizePrice = sizeItem ? sizeItem.price : 0;
+
+    const toppingsPrice = TOPPINGS
+      .filter((t) => selectedToppings.includes(t.id))
+      .reduce((sum, t) => sum + t.price, 0);
+
+    return basePrice + proteinPrice + toppingsPrice + sizePrice;
+  }, [isFood, item.price, selectedAddons, protein, size, selectedToppings, basePrice]);
+
+  const total = unitPrice * qty;
+
+  // Custom formatted dish name for cart
+  const formattedName = useMemo(() => {
+    if (!isFood) return item.name;
+
+    let name = item.name;
+    const defaultProtein = PROTEINS.find((p) => p.id === defaultProteinId);
+    const proteinItem = PROTEINS.find((p) => p.id === protein);
+
+    if (defaultProtein && proteinItem && defaultProtein.id !== proteinItem.id) {
+      const newProteinName = proteinItem.name === "ไม่เอาเนื้อสัตว์" ? "" : proteinItem.name;
+      if (name.includes(defaultProtein.name)) {
+        name = name.replace(defaultProtein.name, newProteinName);
+      } else {
+        name = `${name} ${newProteinName}`;
+      }
+    }
+
+    const sizeItem = SIZES.find((s) => s.id === size);
+    if (sizeItem && sizeItem.id === "s_special" && !name.includes("(พิเศษ)")) {
+      name += " (พิเศษ)";
+    }
+
+    return name;
+  }, [item.name, isFood, defaultProteinId, protein, size]);
+
+  const handleAdd = () => {
+    if (!isFood) {
+      const addons = (item.addons ?? [])
+        .filter((a) => selectedAddons.includes(a.id))
+        .map((a) => ({ id: a.id, name: a.name, price: a.price }));
+
+      onAdd({
+        id: `${item.id}-${Date.now()}`,
+        itemId: item.id,
+        name: item.name,
+        price: unitPrice,
+        qty,
+        addons,
+        options,
+        note,
+        image: item.image,
+      });
+      return;
+    }
+
+    const toppingsList = TOPPINGS.filter((t) => selectedToppings.includes(t.id));
+    const addons = toppingsList.map((t) => ({
+      id: t.id,
+      name: t.name,
+      price: t.price,
+    }));
+
+    onAdd({
+      id: `${item.id}-${Date.now()}`,
+      itemId: item.id,
+      name: formattedName,
+      price: unitPrice,
+      qty,
+      addons,
+      options: {
+        ...options,
+        protein: PROTEINS.find((p) => p.id === protein)?.name || "",
+        size: SIZES.find((s) => s.id === size)?.name || "",
+      },
+      note,
+      image: item.image,
+    });
+  };
 
   return (
     <>
@@ -1131,11 +1361,11 @@ function ItemModal({
             <div className="min-w-0">
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">ปรับแต่ง</p>
               <h2 className="text-2xl font-bold truncate" style={{ color: BRAND }}>
-                {item.name}
+                {formattedName}
               </h2>
               <p className="mt-2 text-sm text-slate-600">{item.desc}</p>
               <p className="mt-3 text-xl font-bold" style={{ color: BRAND }}>
-                ฿{item.price}
+                ฿{unitPrice}
               </p>
             </div>
             <button
@@ -1188,50 +1418,164 @@ function ItemModal({
             </div>
           ))}
 
-          {item.addons && item.addons.length > 0 && (
-            <div className="mt-6">
-              <h3 className="font-semibold mb-2" style={{ color: BRAND }}>
-                เพิ่มเติม
-              </h3>
-              <div className="space-y-2">
-                {item.addons.map((a) => {
-                  const active = selectedAddons.includes(a.id);
-                  return (
-                    <button
-                      key={a.id}
-                      onClick={() =>
-                        setSelectedAddons((s) =>
-                          active ? s.filter((x) => x !== a.id) : [...s, a.id],
-                        )
-                      }
-                      className="w-full flex items-center justify-between rounded-xl border px-4 py-3 text-left"
-                      style={{
-                        borderColor: active ? BRAND : "#ece4d6",
-                        background: active ? "#fff8e6" : "white",
-                      }}
-                    >
-                      <span className="flex items-center gap-3">
-                        <span
-                          className="grid h-5 w-5 place-items-center rounded-md border-2"
-                          style={{
-                            borderColor: active ? BRAND : "#cbd5d8",
-                            background: active ? BRAND : "transparent",
-                          }}
-                        >
-                          {active && <Check size={12} color={GOLD} strokeWidth={3} />}
+          {isFood ? (
+            <>
+              {/* Choose Protein */}
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-2.5">
+                  <h3 className="font-semibold text-sm flex items-center gap-1.5" style={{ color: BRAND }}>
+                    🥩 เลือกวัตถุดิบหลัก
+                  </h3>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: "#fff2d6", color: BRAND }}>
+                    จำเป็น
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {PROTEINS.map((p) => {
+                    const active = protein === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => setProtein(p.id)}
+                        className="flex items-center justify-between rounded-xl border p-3 text-left transition duration-150"
+                        style={{
+                          borderColor: active ? BRAND : "#ece4d6",
+                          background: active ? "#fffcf5" : "white",
+                        }}
+                      >
+                        <span className="text-xs font-semibold" style={{ color: BRAND }}>
+                          {p.name}
                         </span>
-                        <span className="text-sm font-medium" style={{ color: BRAND }}>
-                          + {a.name}
+                        <span className="text-[11px] font-bold" style={{ color: active ? BRAND : INK_MUTED }}>
+                          {p.price > 0 ? `+${p.price} ฿` : "ฟรี"}
                         </span>
-                      </span>
-                      <span className="text-sm font-semibold" style={{ color: BRAND }}>
-                        {a.price} ฿
-                      </span>
-                    </button>
-                  );
-                })}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+
+              {/* Choose Size */}
+              <div className="mt-6">
+                <h3 className="font-semibold text-sm flex items-center gap-1.5 mb-2.5" style={{ color: BRAND }}>
+                  ⚖️ เลือกขนาด
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {SIZES.map((s) => {
+                    const active = size === s.id;
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => setSize(s.id)}
+                        className="flex items-center justify-between rounded-xl border px-4 py-3 text-left transition duration-150"
+                        style={{
+                          borderColor: active ? BRAND : "#ece4d6",
+                          background: active ? "#fffcf5" : "white",
+                        }}
+                      >
+                        <span className="text-xs font-semibold" style={{ color: BRAND }}>
+                          {s.name}
+                        </span>
+                        <span className="text-[11px] font-bold" style={{ color: BRAND }}>
+                          {s.price > 0 ? `+${s.price} ฿` : "ฟรี"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Choose Toppings */}
+              <div className="mt-6">
+                <h3 className="font-semibold text-sm flex items-center gap-1.5 mb-2.5" style={{ color: BRAND }}>
+                  🥚 ท็อปปิ้งเพิ่มเติม (เลือกได้หลายรายการ)
+                </h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {TOPPINGS.map((t) => {
+                    const active = selectedToppings.includes(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() =>
+                          setSelectedToppings((prev) =>
+                            active ? prev.filter((id) => id !== t.id) : [...prev, t.id]
+                          )
+                        }
+                        className="flex items-center justify-between rounded-xl border p-3 text-left transition duration-150"
+                        style={{
+                          borderColor: active ? BRAND : "#ece4d6",
+                          background: active ? "#fffcf5" : "white",
+                        }}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="grid h-4 w-4 place-items-center rounded border"
+                            style={{
+                              borderColor: active ? BRAND : "#cbd5d8",
+                              background: active ? BRAND : "transparent",
+                            }}
+                          >
+                            {active && <Check size={10} color={GOLD} strokeWidth={4} />}
+                          </span>
+                          <span className="text-xs font-medium" style={{ color: BRAND }}>
+                            {t.name}
+                          </span>
+                        </span>
+                        <span className="text-[11px] font-bold" style={{ color: BRAND }}>
+                          +{t.price} ฿
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          ) : (
+            item.addons && item.addons.length > 0 && (
+              <div className="mt-6">
+                <h3 className="font-semibold mb-2" style={{ color: BRAND }}>
+                  เพิ่มเติม
+                </h3>
+                <div className="space-y-2">
+                  {item.addons.map((a) => {
+                    const active = selectedAddons.includes(a.id);
+                    return (
+                      <button
+                        key={a.id}
+                        onClick={() =>
+                          setSelectedAddons((s) =>
+                            active ? s.filter((x) => x !== a.id) : [...s, a.id]
+                          )
+                        }
+                        className="w-full flex items-center justify-between rounded-xl border px-4 py-3 text-left"
+                        style={{
+                          borderColor: active ? BRAND : "#ece4d6",
+                          background: active ? "#fff8e6" : "white",
+                        }}
+                      >
+                        <span className="flex items-center gap-3">
+                          <span
+                            className="grid h-5 w-5 place-items-center rounded-md border-2"
+                            style={{
+                              borderColor: active ? BRAND : "#cbd5d8",
+                              background: active ? BRAND : "transparent",
+                            }}
+                          >
+                            {active && <Check size={12} color={GOLD} strokeWidth={3} />}
+                          </span>
+                          <span className="text-sm font-medium" style={{ color: BRAND }}>
+                            + {a.name}
+                          </span>
+                        </span>
+                        <span className="text-sm font-semibold" style={{ color: BRAND }}>
+                          {a.price} ฿
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )
           )}
 
           <div className="mt-6">
@@ -1271,19 +1615,7 @@ function ItemModal({
               </button>
             </div>
             <button
-              onClick={() =>
-                onAdd({
-                  id: `${item.id}-${Date.now()}`,
-                  itemId: item.id,
-                  name: item.name,
-                  price: unit,
-                  qty,
-                  addons: (item.addons ?? []).filter((a) => selectedAddons.includes(a.id)),
-                  options,
-                  note,
-                  image: item.image,
-                })
-              }
+              onClick={handleAdd}
               className="flex-1 h-12 rounded-full font-semibold flex items-center justify-between px-5"
               style={{ background: BRAND, color: "white" }}
             >
@@ -1320,8 +1652,13 @@ function MenuOverlay({
     { id: "drinks", label: "เครื่องดื่ม" },
     { id: "dessert", label: "ของหวาน" },
   ];
-  // "แนะนำ" tab shows only signature items (like the home page recommend section)
-  const items = activeCat === "all" ? MENU.filter((m) => m.category === "signature") : MENU.filter((m) => m.category === activeCat);
+  // "แนะนำ" tab shows signature items, "อาหารจานหลัก" shows signature, main, noodles, and vegetarian.
+  const items = activeCat === "all"
+    ? MENU.filter((m) => m.category === "signature")
+    : activeCat === "signature"
+    ? MENU.filter((m) => m.category !== "drinks" && m.category !== "dessert")
+    : MENU.filter((m) => m.category === activeCat);
+
 
   return (
     <motion.div
@@ -1384,64 +1721,70 @@ function MenuOverlay({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar px-5 pt-5 pb-20">
+      <div className="flex-1 overflow-y-auto no-scrollbar px-5 pt-5 pb-32">
         <div className="mt-5 space-y-3">
-        {items.map((m) => (
-          <div key={m.id} className="w-full bg-white rounded-2xl p-3 shadow-soft flex items-start gap-3">
-            <img src={encodeURI(String(m.image))} alt={m.name} className="h-20 w-20 rounded-xl object-cover flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div>
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-sm truncate" style={{ color: BRAND }}>{m.name}</h3>
-                  <p className="text-xs mt-1 text-slate-500 whitespace-normal">{m.desc}</p>
-                </div>
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="font-bold text-lg" style={{ color: "#a16207" }}>฿{m.price}</span>
-                  <div className="flex-shrink-0 grid place-items-center">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onPickItem(m);
-                      }}
-                      className="h-10 w-10 rounded-full bg-[#002e47] text-white grid place-items-center"
-                    >
-                      <Plus size={14} />
-                    </button>
+          {items.map((m) => (
+            <div key={m.id} className="w-full bg-white rounded-2xl p-3 shadow-soft flex items-start gap-3">
+              <img src={encodeURI(String(m.image))} alt={m.name} className="h-20 w-20 rounded-xl object-cover flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div>
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-sm truncate" style={{ color: BRAND }}>{m.name}</h3>
+                    <p className="text-xs mt-1 text-slate-500 whitespace-normal">{m.desc}</p>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="font-bold text-lg" style={{ color: "#a16207" }}>฿{m.price}</span>
+                    <div className="flex-shrink-0 grid place-items-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onPickItem(m);
+                        }}
+                        className="h-10 w-10 rounded-full bg-[#002e47] text-white grid place-items-center"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
+      </div>
 
-                <AnimatePresence>
-                  {totalQty > 0 && (
-                    <motion.div
-                      key="menu-cart-inline"
-                      initial={{ y: 20, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      exit={{ y: 20, opacity: 0 }}
-                      transition={{ type: "spring", damping: 20, stiffness: 300 }}
-                      className="mt-6"
-                    >
-                      <button
-                        onClick={onOpenCart}
-                        className="w-full rounded-full py-3 flex items-center justify-between px-4 shadow-lift"
-                        style={{ background: BRAND, color: "white" }}
-                      >
-                        <span className="flex items-center gap-2 font-medium">
-                          <ShoppingBag size={18} style={{ color: GOLD }} /> ดูตะกร้าสินค้า
-                        </span>
-                        <span className="inline-flex items-center gap-2 text-sm font-semibold" style={{ color: GOLD }}>
-                          <span className="rounded-full bg-white/10 px-2 py-1">{totalQty}</span>
-                          ฿{subtotal}
-                        </span>
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+      <AnimatePresence>
+        {totalQty > 0 && (
+          <motion.div
+            key="menu-cart-fixed"
+            initial={{ y: 40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 40, opacity: 0 }}
+            transition={{ type: "spring", damping: 20, stiffness: 300 }}
+            className="absolute z-40"
+            style={{ left: 16, right: 16, bottom: 24 }}
+          >
+            <button
+              onClick={onOpenCart}
+              className="w-full rounded-2xl px-5 py-4 flex items-center justify-between shadow-lift"
+              style={{ background: BRAND, color: "white" }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="relative grid h-9 w-9 place-items-center rounded-xl" style={{ background: "rgba(252,193,74,0.15)" }}>
+                  <ShoppingBag size={18} style={{ color: GOLD }} />
+                  <span className="absolute -top-1 -right-1 grid h-5 min-w-5 px-1 place-items-center rounded-full text-[10px] font-bold" style={{ background: GOLD, color: BRAND }}>
+                    {totalQty}
+                  </span>
+                </div>
+                <span className="font-medium">ดูตะกร้าสินค้า</span>
               </div>
-    </div>
+              <span className="font-bold text-lg" style={{ color: GOLD }}>
+                ฿{subtotal}
+              </span>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </motion.div>
   );
@@ -1703,7 +2046,7 @@ function PaymentOverlay({
   const PROMPTPAY = "089-123-4567";
 
   const handleCopy = () => {
-    navigator.clipboard?.writeText(PROMPTPAY).catch(() => {});
+    navigator.clipboard?.writeText(PROMPTPAY).catch(() => { });
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -1931,9 +2274,9 @@ function StatusScreen({
   const orderItems = activeOrder
     ? activeOrder.items
     : ([
-        { name: "Premium Wagyu Don", qty: 1, price: 420 },
-        { name: "Matcha Latte", qty: 2, price: 120 },
-      ] as { name: string; qty: number; price: number }[]);
+      { name: "Premium Wagyu Don", qty: 1, price: 420 },
+      { name: "Matcha Latte", qty: 2, price: 120 },
+    ] as { name: string; qty: number; price: number }[]);
   const total = activeOrder ? activeOrder.total : 420 + 240 + 40;
 
   return (
@@ -2268,14 +2611,14 @@ function HistoryOverlay({
                       order.status === "สำเร็จ"
                         ? "#dcfce7"
                         : order.status === "กำลังจัดส่ง"
-                        ? "#dbeafe"
-                        : "#fef9c3",
+                          ? "#dbeafe"
+                          : "#fef9c3",
                     color:
                       order.status === "สำเร็จ"
                         ? "#15803d"
                         : order.status === "กำลังจัดส่ง"
-                        ? "#1d4ed8"
-                        : "#a16207",
+                          ? "#1d4ed8"
+                          : "#a16207",
                   }}
                 >
                   {order.status === "สำเร็จ" && <CheckCircle size={12} />}
@@ -2337,6 +2680,235 @@ function HistoryOverlay({
 }
 
 // ─────────────────────────────────────────────────────────────
+// Contact Overlay (Full Page)
+// ─────────────────────────────────────────────────────────────
+function ContactOverlay({ onBack }: { onBack: () => void }) {
+  const reviews = [
+    {
+      id: 1,
+      name: "Panisa T.",
+      initials: "PT",
+      stars: 5,
+      date: "5 มิ.ย. 2026",
+      text: "อร่อยสุดยอดมากครับ กระเพราหมูกรอบคือที่สุด! หนังหมูกรอบกรุบกรอบกำลังดี รสชาติเผ็ดจัดจ้านสะใจ แนะนำเลยครับ",
+    },
+    {
+      id: 2,
+      name: "Chawalit R.",
+      initials: "CR",
+      stars: 5,
+      date: "2 มิ.ย. 2026",
+      text: "ชอบผัดพริกแกงหมูกรอบมากครับ รสชาติเข้มข้นถึงเครื่องแกง ไข่ดาวทอดมาแบบกึ่งสุกกึ่งดิบกำลังดี บริการส่งรวดเร็วทันใจมากครับ",
+    },
+    {
+      id: 3,
+      name: "Somsri K.",
+      initials: "SK",
+      stars: 4,
+      date: "28 พ.ค. 2026",
+      text: "น้ำลำไยหวานชื่นใจ หอมกลิ่นลำไยสด ดื่มคู่กับผัดซีอิ๊วอร่อยลงตัวมากๆ ค่ะ ร้านสะอาดและใช้วัตถุดิบคุณภาพดีจริงๆ",
+    },
+  ];
+
+  return (
+    <motion.div
+      initial={{ x: "100%" }}
+      animate={{ x: 0 }}
+      exit={{ x: "100%" }}
+      transition={{ type: "tween", duration: 0.3 }}
+      className="absolute inset-0 z-30 bg-[var(--surface)] flex flex-col"
+    >
+      {/* Header */}
+      <div className="px-5 pt-5 pb-4 flex items-center justify-between" style={{ background: BRAND, color: "white" }}>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="grid h-10 w-10 place-items-center rounded-full bg-white/10 border border-white/15"
+          >
+            <ChevronLeft size={20} color={GOLD} />
+          </button>
+          <h1 className="text-lg font-bold">ข้อมูลร้านค้า</h1>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto no-scrollbar pb-10">
+        
+        {/* Google Maps Container */}
+        <div className="relative h-64 w-full bg-slate-200 overflow-hidden">
+          <iframe
+            title="Google Maps"
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3875.6416801968853!2d100.5670868153347!3d13.737152990356773!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x30e29f03b57e7939%3A0xe5a3637e163b7e80!2sSukhumvit%2031%2C%20Khlong%20Toei%20Nuea%2C%20Watthana%2C%20Bangkok%2010110!5e0!3m2!1sen!2sth!4v1655610000000!5m2!1sen!2sth"
+            width="100%"
+            height="100%"
+            style={{ border: 0 }}
+            allowFullScreen
+            loading="lazy"
+          ></iframe>
+          
+          {/* Overlay gradient */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent pointer-events-none" />
+
+          {/* Shop info overlay on Map */}
+          <div className="absolute bottom-4 left-5 right-5 flex items-end justify-between pointer-events-none">
+            <div className="text-white">
+              <h2 className="text-xl font-bold">ร้านลุงเก็ต</h2>
+              <p className="text-xs text-white/80 mt-1">อาหารตามสั่ง · Street Food</p>
+            </div>
+            
+            {/* Rating badge */}
+            <div className="bg-[#ffcb44] rounded-2xl px-3 py-2 flex flex-col items-center shadow-lg shrink-0" style={{ color: BRAND }}>
+              <span className="text-base font-extrabold leading-none">4.8</span>
+              <div className="flex gap-0.5 my-0.5" style={{ color: BRAND }}>
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} size={8} fill="currentColor" stroke="none" />
+                ))}
+              </div>
+              <span className="text-[9px] font-semibold leading-none opacity-85">214 รีวิว</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Contact info details list */}
+        <div className="mx-5 mt-5 bg-white rounded-2xl border border-slate-200/80 shadow-soft divide-y divide-slate-100">
+          {/* Address */}
+          <div className="p-4 flex items-start gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-xl shrink-0" style={{ background: "rgba(0,46,71,0.06)", color: BRAND }}>
+              <MapPin size={18} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-slate-400">Address</p>
+              <p className="text-sm font-medium text-slate-700 mt-0.5 leading-relaxed">
+                88/12 ซอยสุขุมวิท 31 แขวงคลองเตยเหนือ เขตวัฒนา กรุงเทพฯ 10110
+              </p>
+            </div>
+            <a
+              href="https://maps.app.goo.gl/yS3EHz9n2H4Hkpxu7"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 rounded-full border text-xs font-bold shrink-0 flex items-center gap-1 transition hover:bg-slate-50 mt-1"
+              style={{ borderColor: BRAND, color: BRAND }}
+            >
+              <MapPin size={12} /> นำทาง
+            </a>
+          </div>
+
+          {/* Opening Hours */}
+          <div className="p-4 flex items-start gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-xl shrink-0" style={{ background: "rgba(0,46,71,0.06)", color: BRAND }}>
+              <Clock size={18} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-slate-400">Opening Hours</p>
+              <div className="flex justify-between text-sm mt-1">
+                <span className="text-slate-700 font-medium">จันทร์ - เสาร์</span>
+                <span className="text-slate-800 font-semibold">10:00 - 22:00</span>
+              </div>
+              <div className="flex justify-between text-sm mt-0.5">
+                <span className="text-red-500 font-medium">วันอาทิตย์</span>
+                <span className="text-red-500 font-semibold">ปิดทำการ</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Phone */}
+          <a
+            href="tel:02-123-4567"
+            className="p-4 flex items-center gap-3 transition hover:bg-slate-50"
+          >
+            <div className="grid h-10 w-10 place-items-center rounded-xl shrink-0" style={{ background: "rgba(0,46,71,0.06)", color: BRAND }}>
+              <Phone size={18} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-slate-400">Phone</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: GOLD }}>
+                02-123-4567
+              </p>
+            </div>
+            <ChevronRight size={18} className="text-slate-400" />
+          </a>
+        </div>
+
+        {/* Reviews Section */}
+        <div className="px-5 mt-6">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-base" style={{ color: BRAND }}>Reviews</h3>
+            <button className="text-xs font-semibold hover:underline" style={{ color: BRAND }}>
+              See all
+            </button>
+          </div>
+
+          {/* Rating Summary Box */}
+          <div className="bg-[#002e47] text-white rounded-2xl p-5 mt-3 flex items-center justify-between shadow-soft">
+            <div className="flex flex-col">
+              <span className="text-4xl font-extrabold leading-none">4.8</span>
+              <div className="flex gap-0.5 text-[#ffcb44] my-2">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} size={14} fill="currentColor" stroke="none" />
+                ))}
+              </div>
+              <span className="text-xs text-white/70">214 รีวิว</span>
+            </div>
+
+            {/* Progress Bars */}
+            <div className="flex-1 max-w-[160px] space-y-1.5">
+              {[
+                { star: 5, pct: 85 },
+                { star: 4, pct: 10 },
+                { star: 3, pct: 3 },
+                { star: 2, pct: 1 },
+                { star: 1, pct: 1 },
+              ].map((item) => (
+                <div key={item.star} className="flex items-center gap-2">
+                  <span className="text-[10px] text-white/80 font-medium w-2 leading-none">{item.star}</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                    <div className="h-full rounded-full bg-[#ffcb44]" style={{ width: `${item.pct}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Review List */}
+          <div className="mt-4 space-y-3">
+            {reviews.map((r) => (
+              <div key={r.id} className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-soft">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-10 w-10 place-items-center rounded-full text-white font-bold text-sm bg-[#002e47]">
+                    {r.initials}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold text-slate-800 truncate">{r.name}</h4>
+                      <span className="text-[10px] text-slate-400">{r.date}</span>
+                    </div>
+                    <div className="flex gap-0.5 mt-0.5">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          size={10}
+                          fill={i < r.stars ? "#ffcb44" : "none"}
+                          stroke={i < r.stars ? "none" : "#cbd5e1"}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs mt-3 leading-relaxed" style={{ color: BRAND }}>
+                  {r.text}
+                </p>
+              </div>
+            ))}
+          </div>
+
+        </div>
+
+      </div>
+    </motion.div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // Sidebar
 // ─────────────────────────────────────────────────────────────
 function Sidebar({
@@ -2354,8 +2926,6 @@ function Sidebar({
     { id: "history", label: "ประวัติการสั่งซื้อ", icon: History },
     { id: "contact", label: "ติดต่อเรา", icon: MessageCircle },
   ];
-
-  const [activeTab, setActiveTab] = useState<"main" | "contact">("main");
 
   return (
     <>
@@ -2386,59 +2956,25 @@ function Sidebar({
           </div>
         </div>
         <div className="flex-1 overflow-y-auto no-scrollbar p-3">
-          {activeTab === "main" ? (
-            <nav className="space-y-1">
-              {items.map((it) => (
-                <button
-                  key={it.id}
-                  onClick={() => {
-                    if (it.id === "contact") {
-                      setActiveTab("contact");
-                      return;
-                    }
-                    // history now navigates to full-page overlay
-                    onNavigate(it.id);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-left hover:bg-white/5"
-                >
-                  <it.icon size={18} color={GOLD} />
-                  <span className="font-medium text-sm">{it.label}</span>
-                  {it.id === "history" && orderHistory.length > 0 && (
-                    <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: GOLD, color: BRAND }}>
-                      {orderHistory.length}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </nav>
-          ) : (
-            <div className="space-y-3">
+          <nav className="space-y-1">
+            {items.map((it) => (
               <button
-                onClick={() => setActiveTab("main")}
-                className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-sm font-medium"
+                key={it.id}
+                onClick={() => {
+                  onNavigate(it.id);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-left hover:bg-white/5"
               >
-                <ChevronLeft size={16} /> ย้อนกลับ
+                <it.icon size={18} color={GOLD} />
+                <span className="font-medium text-sm">{it.label}</span>
+                {it.id === "history" && orderHistory.length > 0 && (
+                  <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: GOLD, color: BRAND }}>
+                    {orderHistory.length}
+                  </span>
+                )}
               </button>
-              <div className="rounded-2xl bg-white/10 p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-white/70 mb-2">Location</p>
-                <p className="text-sm font-semibold">Sukhumvit 31, กรุงเทพฯ</p>
-              </div>
-              <div className="rounded-2xl bg-white/10 p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-white/70 mb-2">เบอร์โทร</p>
-                <p className="text-sm font-semibold">02-123-4567</p>
-              </div>
-              <div className="rounded-2xl bg-white/10 p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-white/70 mb-2">รีวิวร้าน</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold">4.8</span>
-                  <div className="flex items-center gap-1 text-white/90">
-                    <Star size={14} /> <Star size={14} /> <Star size={14} /> <Star size={14} /> <Star size={14} />
-                  </div>
-                </div>
-                <p className="text-xs text-white/70 mt-1">“บรรยากาศดี อาหารอร่อย บริการไว”</p>
-              </div>
-            </div>
-          )}
+            ))}
+          </nav>
         </div>
         <div className="p-5 border-t border-white/10 space-y-4">
           <button
