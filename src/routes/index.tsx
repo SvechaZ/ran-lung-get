@@ -33,6 +33,9 @@ import {
   History,
   Receipt,
   Package,
+  ArrowUpDown,
+  SlidersHorizontal,
+  Store,
 } from "lucide-react";
 
 // Images are served from /meal (public directory)
@@ -372,6 +375,43 @@ function LiffApp() {
   const [showAddressError, setShowAddressError] = useState(false);
   const [showTypeError, setShowTypeError] = useState(false);
 
+  // Simulating store closed state (for prototype testing)
+  const [simulateClosed, setSimulateClosed] = useState(false);
+  const [bypassRealClosed, setBypassRealClosed] = useState(false);
+
+  const isCurrentlyClosed = useMemo(() => {
+    if (simulateClosed) return true;
+    if (bypassRealClosed) return false;
+
+    // Bangkok timezone ICT (UTC+7)
+    const now = new Date();
+    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+    const thTime = new Date(utc + 3600000 * 7);
+    const day = thTime.getUTCDay(); // 0 is Sunday, 6 is Saturday
+    const hour = thTime.getUTCHours();
+    const minute = thTime.getUTCMinutes();
+
+    // Closed all day Saturday (6)
+    if (day === 6) {
+      return true;
+    }
+
+    // Open Sunday-Friday from 08:00 to 21:00
+    const timeInMinutes = hour * 60 + minute;
+    const openTime = 8 * 60; // 08:00
+    const closeTime = 21 * 60; // 21:00
+
+    if (timeInMinutes < openTime || timeInMinutes >= closeTime) {
+      return true;
+    }
+
+    return false;
+  }, [simulateClosed, bypassRealClosed]);
+
+  const shouldShowClosedOverlay = isCurrentlyClosed && 
+    tab === "home" && 
+    (overlay === null || overlay === "menu" || overlay === "orderConfirm" || overlay === "payment");
+
   const [orderHistory, setOrderHistory] = useState<OrderHistory[]>([
     {
       id: "hist_1",
@@ -470,6 +510,8 @@ function LiffApp() {
             <HomeScreen
               onOpenSidebar={() => setSidebar(true)}
               orderType={orderType}
+              isCurrentlyClosed={isCurrentlyClosed}
+              bypassRealClosed={bypassRealClosed}
               setOrderType={setOrderType}
               onPickItem={(it) => setSelectedItem(it)}
               onOpenCart={() => setCartDrawer(true)}
@@ -602,6 +644,26 @@ function LiffApp() {
                 if (t === "contact") setOverlay("contact");
               }}
               orderHistory={orderHistory}
+              simulateClosed={simulateClosed}
+              setSimulateClosed={(val) => {
+                setSimulateClosed(val);
+                if (val) {
+                  setBypassRealClosed(false); // Reset bypass if they explicitly simulate closed
+                }
+              }}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {shouldShowClosedOverlay && (
+            <StoreClosedOverlay
+              key="closed"
+              onBypass={() => {
+                setBypassRealClosed(true);
+                setSimulateClosed(false);
+              }}
+              onOpenSidebar={() => setSidebar(true)}
             />
           )}
         </AnimatePresence>
@@ -797,22 +859,7 @@ function DeliveryBlock({
       </div>
 
 
-      {/* CTA */}
-      <AnimatePresence>
-        {isReady && (
-          <motion.button
-            key="delivery-cta"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            onClick={onOpenMenu}
-            className="w-full rounded-xl py-3 font-semibold text-sm flex items-center justify-center gap-2 shadow-sm"
-            style={{ background: BRAND, color: "white" }}
-          >
-            สั่งอาหารเลย <ChevronRight size={16} />
-          </motion.button>
-        )}
-      </AnimatePresence>
+
     </div>
   );
 }
@@ -878,6 +925,8 @@ function HomeScreen({
   setShowAddressError,
   showTypeError,
   setShowTypeError,
+  isCurrentlyClosed,
+  bypassRealClosed,
 }: {
   onOpenSidebar: () => void;
   orderType: OrderType | null;
@@ -904,6 +953,8 @@ function HomeScreen({
   setShowAddressError: (val: boolean) => void;
   showTypeError: boolean;
   setShowTypeError: (val: boolean) => void;
+  isCurrentlyClosed: boolean;
+  bypassRealClosed: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const scroll = (direction: "left" | "right") => {
@@ -955,11 +1006,22 @@ function HomeScreen({
           <p className="text-sm text-white/80 mt-1">เลือกประสบการณ์การรับประทาน</p>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-semibold text-emerald-400 border border-emerald-500/35 backdrop-blur-sm">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
-                เปิดบริการ
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold border backdrop-blur-sm ${
+                isCurrentlyClosed
+                  ? "bg-red-500/20 text-red-400 border-red-500/35"
+                  : "bg-emerald-500/20 text-emerald-400 border-emerald-500/35"
+              }`}>
+                <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${isCurrentlyClosed ? "bg-red-400" : "bg-emerald-400"}`} />
+                {isCurrentlyClosed ? "ปิดบริการ" : "เปิดบริการ"}
               </span>
-              <span className="text-sm font-medium text-white/90">10:00 - 22:00</span>
+              <span className="text-xs font-semibold text-white/90">
+                {isCurrentlyClosed ? "อา. - ศ. 08:00 - 21:00" : "08:00 - 21:00"}
+              </span>
+              {bypassRealClosed && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/25 px-2 py-0.5 text-[9px] font-bold text-amber-300 border border-amber-500/30">
+                  โหมดสาธิต
+                </span>
+              )}
             </div>
             <button
               onClick={() => {
@@ -1104,7 +1166,7 @@ function HomeScreen({
           {/* Left arrow */}
           <button
             onClick={() => scroll("left")}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 grid h-9 w-9 place-items-center rounded-full bg-white border border-[#ece4d6] hover:bg-slate-50 transition shadow-md"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/50 backdrop-blur-[2px] border border-[#ece4d6]/50 hover:bg-white/80 transition shadow-sm"
             style={{ color: BRAND, marginLeft: -4 }}
             aria-label="เลื่อนซ้าย"
           >
@@ -1188,7 +1250,7 @@ function HomeScreen({
           {/* Right arrow */}
           <button
             onClick={() => scroll("right")}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 grid h-9 w-9 place-items-center rounded-full bg-white border border-[#ece4d6] hover:bg-slate-50 transition shadow-md"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/50 backdrop-blur-[2px] border border-[#ece4d6]/50 hover:bg-white/80 transition shadow-sm"
             style={{ color: BRAND, marginRight: -4 }}
             aria-label="เลื่อนขวา"
           >
@@ -1256,9 +1318,18 @@ function TablePickerBottomSheet({
     }
   };
 
-  const sortedTables = useMemo(() => {
-    return [...tables].sort((a, b) => Number(a.id) - Number(b.id));
-  }, [tables]);
+  const [tableFilter, setTableFilter] = useState<"all" | "available" | "occupied">("all");
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+
+  const displayTables = useMemo(() => {
+    let list = [...tables].sort((a, b) => Number(a.id) - Number(b.id));
+    if (tableFilter === "available") {
+      return list.filter((t) => t.status === "available");
+    } else if (tableFilter === "occupied") {
+      return list.filter((t) => t.status === "occupied");
+    }
+    return list;
+  }, [tables, tableFilter]);
 
   return (
     <>
@@ -1286,21 +1357,96 @@ function TablePickerBottomSheet({
         onTouchMove={onTouchMoveModal}
       >
         <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-slate-200" />
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">เลือกโต๊ะ</p>
-            <h2 className="text-lg font-semibold text-slate-900">ผังที่นั่ง</h2>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400 font-semibold">เลือกโต๊ะ</p>
+            <h2 className="text-base font-bold text-slate-800">ผังที่นั่ง</h2>
           </div>
+          
+          {/* Custom Dropdown Filter */}
+          <div className="relative">
+            <button
+              onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+              className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm text-xs font-bold text-slate-700 cursor-pointer transition hover:bg-slate-100/80 active:scale-95 select-none"
+            >
+              {tableFilter === "all" && (
+                <>
+                  <span className="h-2 w-2 rounded-full bg-slate-400 shrink-0" />
+                  <span>ทั้งหมด</span>
+                </>
+              )}
+              {tableFilter === "available" && (
+                <>
+                  <span className="h-2 w-2 rounded-full bg-[#15803d] shrink-0" />
+                  <span className="text-[#15803d]">โต๊ะว่าง</span>
+                </>
+              )}
+              {tableFilter === "occupied" && (
+                <>
+                  <span className="h-2 w-2 rounded-full bg-[#dc2626] shrink-0" />
+                  <span className="text-[#dc2626]">เต็ม</span>
+                </>
+              )}
+              <ChevronRight size={12} className={`text-slate-400 transition-transform ${showFilterDropdown ? "rotate-90" : ""}`} />
+            </button>
+
+            <AnimatePresence>
+              {showFilterDropdown && (
+                <>
+                  {/* Local overlay to close dropdown */}
+                  <div
+                    onClick={() => setShowFilterDropdown(false)}
+                    className="fixed inset-0 z-10 cursor-default"
+                  />
+                  {/* Dropdown list */}
+                  <motion.div
+                    initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                    transition={{ duration: 0.12 }}
+                    className="absolute right-0 mt-1.5 w-28 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-20 space-y-0.5"
+                  >
+                    {[
+                      { id: "all", label: "ทั้งหมด", color: "bg-slate-400" },
+                      { id: "available", label: "โต๊ะว่าง", color: "bg-[#15803d]" },
+                      { id: "occupied", label: "เต็ม", color: "bg-[#dc2626]" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.id}
+                        onClick={() => {
+                          setTableFilter(opt.id as any);
+                          setShowFilterDropdown(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-xs font-bold transition hover:bg-slate-50 cursor-pointer"
+                        style={{
+                          color: tableFilter === opt.id ? BRAND : "#64748b"
+                        }}
+                      >
+                        <span className={`h-2 w-2 rounded-full shrink-0 ${opt.color}`} />
+                        <span>{opt.label}</span>
+                      </button>
+                    ))}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+
           <button
             onClick={() => onClose()}
-            className="text-slate-500 text-sm"
+            className="text-slate-500 text-sm font-semibold hover:text-slate-800"
             title={selectedTable ? "ปิด" : "ปิด"}
           >
             ปิด
           </button>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          {sortedTables.map((table) => {
+          {displayTables.length === 0 ? (
+            <div className="col-span-2 text-center py-12 flex flex-col items-center justify-center">
+              <p className="text-sm font-semibold text-slate-500">ไม่พบโต๊ะในสถานะนี้</p>
+            </div>
+          ) : (
+            displayTables.map((table) => {
             const available = table.status === "available";
             const isOccupied = table.status === "occupied";
             const statusLabel = available ? "ว่าง" : "ไม่ว่าง";
@@ -1345,7 +1491,8 @@ function TablePickerBottomSheet({
                 <p className="mt-2 text-xs" style={{ color: boxSubText }}>พื้นที่นั่งสบายสำหรับ 2-4 คน</p>
               </button>
             );
-          })}
+          })
+        )}
         </div>
         <div className="mt-5 rounded-2xl bg-slate-50 p-4">
           <p className="text-sm font-semibold text-slate-700">สถานะโต๊ะ</p>
@@ -1800,18 +1947,42 @@ function MenuOverlay({
   subtotal: number;
 }) {
   const [activeCat, setActiveCat] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("default");
+  const [showSortModal, setShowSortModal] = useState(false);
+
   const categories = [
     { id: "all", label: "แนะนำ" },
     { id: "signature", label: "อาหารจานหลัก" },
     { id: "drinks", label: "เครื่องดื่ม" },
     { id: "dessert", label: "ของหวาน" },
   ];
-  // "แนะนำ" tab shows signature items, "อาหารจานหลัก" shows signature, main, noodles, and vegetarian.
-  const items = activeCat === "all"
-    ? MENU.filter((m) => m.category === "signature")
-    : activeCat === "signature"
-    ? MENU.filter((m) => m.category !== "drinks" && m.category !== "dessert")
-    : MENU.filter((m) => m.category === activeCat);
+
+  // Filter and sort items dynamically
+  const filteredAndSortedItems = useMemo(() => {
+    let list = activeCat === "all"
+      ? MENU.filter((m) => m.category === "signature")
+      : activeCat === "signature"
+      ? MENU.filter((m) => m.category !== "drinks" && m.category !== "dessert")
+      : MENU.filter((m) => m.category === activeCat);
+
+    if (searchQuery.trim() !== "") {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (m) =>
+          m.name.toLowerCase().includes(q) ||
+          (m.desc && m.desc.toLowerCase().includes(q))
+      );
+    }
+
+    if (sortBy === "price-low") {
+      list = [...list].sort((a, b) => a.price - b.price);
+    } else if (sortBy === "price-high") {
+      list = [...list].sort((a, b) => b.price - a.price);
+    }
+
+    return list;
+  }, [activeCat, searchQuery, sortBy]);
 
 
   return (
@@ -1841,16 +2012,46 @@ function MenuOverlay({
             <Search size={20} />
           </button>
         </div>
-        <div className="mt-4">
-          <div className="rounded-2xl bg-white px-4 py-3 shadow-sm border border-slate-200 flex items-center gap-3">
+        
+        {/* Search input and Sort button */}
+        <div className="mt-4 flex gap-2">
+          <div className="flex-1 rounded-2xl bg-white px-4 py-3 shadow-sm border border-slate-200 flex items-center gap-3">
             <Search size={16} className="text-slate-400" />
             <input
               aria-label="ค้นหาเมนู"
               placeholder="ค้นหาเมนู..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="text-slate-400 hover:text-slate-600 transition"
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
+          <button
+            onClick={() => setShowSortModal(true)}
+            className="grid h-11 w-11 place-items-center rounded-2xl border shadow-sm transition active:scale-95 cursor-pointer relative"
+            style={{
+              background: sortBy !== "default" ? BRAND : "white",
+              color: sortBy !== "default" ? GOLD : BRAND,
+              borderColor: sortBy !== "default" ? BRAND : "#ece4d6",
+            }}
+            aria-label="เรียงลำดับเมนู"
+          >
+            <SlidersHorizontal size={18} />
+            {sortBy !== "default" && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white shadow-sm border border-white">
+                1
+              </span>
+            )}
+          </button>
         </div>
+
         <div className="mt-4 flex gap-2 overflow-x-auto no-scrollbar pb-2">
           {categories.map((cat) => {
             const active = cat.id === activeCat;
@@ -1877,33 +2078,47 @@ function MenuOverlay({
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 pt-5 pb-32">
         <div className="mt-5 space-y-3">
-          {items.map((m) => (
-            <div key={m.id} className="w-full bg-white rounded-2xl p-3 shadow-soft flex items-start gap-3">
-              <img src={encodeURI(String(m.image))} alt={m.name} className="h-20 w-20 rounded-xl object-cover flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div>
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-sm truncate" style={{ color: BRAND }}>{m.name}</h3>
-                    <p className="text-xs mt-1 text-slate-500 whitespace-normal">{m.desc}</p>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="font-bold text-lg" style={{ color: "#a16207" }}>฿{m.price}</span>
-                    <div className="flex-shrink-0 grid place-items-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onPickItem(m);
-                        }}
-                        className="h-10 w-10 rounded-full bg-[#002e47] text-white grid place-items-center"
-                      >
-                        <Plus size={14} />
-                      </button>
+          {filteredAndSortedItems.length === 0 ? (
+            <div className="text-center py-16 flex flex-col items-center justify-center">
+              <Search size={32} className="text-slate-300 mb-2" />
+              <p className="text-sm font-semibold text-slate-500">ไม่พบเมนูที่คุณค้นหา</p>
+              <p className="text-xs text-slate-400 mt-1">ลองใช้คำอื่น หรือรีเซ็ตการค้นหา</p>
+              <button
+                onClick={() => setSearchQuery("")}
+                className="mt-4 px-4 py-2 bg-[#002e47] text-[#fcc14a] rounded-full text-xs font-bold shadow-soft cursor-pointer transition active:scale-95"
+              >
+                ล้างคำค้นหา
+              </button>
+            </div>
+          ) : (
+            filteredAndSortedItems.map((m) => (
+              <div key={m.id} className="w-full bg-white rounded-2xl p-3 shadow-soft flex items-start gap-3">
+                <img src={encodeURI(String(m.image))} alt={m.name} className="h-20 w-20 rounded-xl object-cover flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-sm truncate" style={{ color: BRAND }}>{m.name}</h3>
+                      <p className="text-xs mt-1 text-slate-500 whitespace-normal">{m.desc}</p>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between">
+                      <span className="font-bold text-lg" style={{ color: "#a16207" }}>฿{m.price}</span>
+                      <div className="flex-shrink-0 grid place-items-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onPickItem(m);
+                          }}
+                          className="h-10 w-10 rounded-full bg-[#002e47] text-white grid place-items-center cursor-pointer transition active:scale-95 hover:opacity-90"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
@@ -1937,6 +2152,83 @@ function MenuOverlay({
               </span>
             </button>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Sorting Bottom Sheet */}
+      <AnimatePresence>
+        {showSortModal && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSortModal(false)}
+              className="absolute inset-0 bg-black/50 z-50 cursor-pointer"
+            />
+            {/* Sheet */}
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 260 }}
+              className="absolute inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl pb-8"
+            >
+              <div className="px-5 pt-3 pb-4 border-b border-slate-100">
+                <div className="mx-auto h-1.5 w-12 rounded-full bg-slate-200 mb-3" />
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-bold flex items-center gap-1.5" style={{ color: BRAND }}>
+                    <SlidersHorizontal size={16} />
+                    <span>เรียงลำดับตาม</span>
+                  </h2>
+                  <button onClick={() => setShowSortModal(false)} className="text-sm font-semibold" style={{ color: INK_MUTED }}>
+                    เสร็จสิ้น
+                  </button>
+                </div>
+              </div>
+              
+              <div className="px-5 mt-4 space-y-2.5">
+                {[
+                  { id: "default", label: "🔥 ยอดนิยม (แนะนำ)", desc: "เมนูขายดีประจำสัปดาห์" },
+                  { id: "price-low", label: "💵 ราคา: ต่ำ - สูง", desc: "เมนูราคาประหยัด เรียงตามเงินบาท" },
+                  { id: "price-high", label: "💵 ราคา: สูง - ต่ำ", desc: "เมนูระดับพรีเมียมคัดสรรพิเศษ" },
+                ].map((opt) => {
+                  const active = sortBy === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => {
+                        setSortBy(opt.id);
+                        setShowSortModal(false);
+                      }}
+                      className="w-full flex items-center justify-between p-3.5 rounded-2xl border text-left transition duration-200 active:scale-[0.98] cursor-pointer"
+                      style={{
+                        background: active ? "rgba(0,46,71,0.02)" : "white",
+                        borderColor: active ? BRAND : "#ece4d6",
+                      }}
+                    >
+                      <div>
+                        <p className="font-semibold text-sm" style={{ color: BRAND }}>{opt.label}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{opt.desc}</p>
+                      </div>
+                      <div
+                        className="h-5 w-5 rounded-full border-2 flex items-center justify-center transition"
+                        style={{
+                          borderColor: active ? BRAND : "#cbd5e1",
+                          background: active ? BRAND : "transparent"
+                        }}
+                      >
+                        {active && (
+                          <div className="h-2 w-2 rounded-full bg-[#fcc14a]" />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 
@@ -2978,11 +3270,11 @@ function ContactOverlay({ onBack }: { onBack: () => void }) {
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-slate-400">Opening Hours</p>
               <div className="flex justify-between text-sm mt-1">
-                <span className="text-slate-700 font-medium">จันทร์ - เสาร์</span>
-                <span className="text-slate-800 font-semibold">10:00 - 22:00</span>
+                <span className="text-slate-700 font-medium">อาทิตย์ - ศุกร์</span>
+                <span className="text-slate-800 font-semibold">08:00 - 21:00</span>
               </div>
               <div className="flex justify-between text-sm mt-0.5">
-                <span className="text-red-500 font-medium">วันอาทิตย์</span>
+                <span className="text-red-500 font-medium">วันเสาร์</span>
                 <span className="text-red-500 font-semibold">ปิดทำการ</span>
               </div>
             </div>
@@ -3086,16 +3378,148 @@ function ContactOverlay({ onBack }: { onBack: () => void }) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Store Closed Overlay
+// ─────────────────────────────────────────────────────────────
+function StoreClosedOverlay({
+  onBypass,
+  onOpenSidebar,
+}: {
+  onBypass: () => void;
+  onOpenSidebar: () => void;
+}) {
+  const todayDay = useMemo(() => {
+    const now = new Date();
+    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+    const thTime = new Date(utc + 3600000 * 7);
+    return thTime.getUTCDay();
+  }, []);
+
+  const daysInfo = [
+    { name: "วันอาทิตย์", label: "อา.", time: "08:00 - 21:00", open: true, dayIndex: 0 },
+    { name: "วันจันทร์", label: "จ.", time: "08:00 - 21:00", open: true, dayIndex: 1 },
+    { name: "วันอังคาร", label: "อ.", time: "08:00 - 21:00", open: true, dayIndex: 2 },
+    { name: "วันพุธ", label: "พ.", time: "08:00 - 21:00", open: true, dayIndex: 3 },
+    { name: "วันพฤหัสบดี", label: "พฤ.", time: "08:00 - 21:00", open: true, dayIndex: 4 },
+    { name: "วันศุกร์", label: "ศ.", time: "08:00 - 21:00", open: true, dayIndex: 5 },
+    { name: "วันเสาร์", label: "ส.", time: "ปิดทำการ", open: false, dayIndex: 6 },
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="absolute inset-0 z-50 bg-[var(--surface)] flex flex-col"
+    >
+      {/* Header */}
+      <div className="px-5 pt-5 pb-4 flex items-center justify-between shadow-sm" style={{ background: BRAND, color: "white" }}>
+        <button
+          onClick={onOpenSidebar}
+          className="grid h-10 w-10 place-items-center rounded-full bg-white/10 border border-white/15 active:scale-95 transition-transform"
+        >
+          <Menu size={20} color={GOLD} />
+        </button>
+        <span className="text-xs uppercase tracking-[0.25em] text-white/60 font-bold">EPICUREAN</span>
+        <div className="w-10" />
+      </div>
+
+      {/* Main Banner */}
+      <div className="flex-1 overflow-y-auto no-scrollbar px-6 py-6 flex flex-col justify-between">
+        <div className="space-y-6">
+          {/* Pulsing closed icon */}
+          <div className="flex justify-center mt-2">
+            <div className="relative">
+              <div className="grid h-20 w-20 place-items-center rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 shadow-sm animate-pulse">
+                <Store size={38} className="stroke-[1.5]" />
+              </div>
+              <div className="absolute -bottom-2 -right-2 grid h-7 w-7 place-items-center rounded-full bg-red-500 text-white border border-white shadow-md">
+                <Clock size={14} className="animate-spin" style={{ animationDuration: '6s' }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Main Closed Text Box */}
+          <div className="text-center space-y-3">
+            <h2 className="text-xl font-bold text-slate-800 leading-snug">
+              วันนี้ร้านปิดทำการ ขออภัยในความไม่สะดวก
+            </h2>
+            <div className="inline-block bg-amber-500/10 border border-amber-500/20 rounded-2xl px-6 py-4 mt-2 max-w-sm mx-auto">
+              <p className="text-sm font-semibold text-amber-900 leading-relaxed">
+                เราจะเปิดบริการอีกครั้งวันอาทิตย์-ศุกร์<br />
+                เวลา <span className="font-extrabold text-amber-950 text-base">8:00 - 21:00 น.</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Opening Schedule Grid */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">ตารางเวลาให้บริการ</h3>
+            <div className="bg-white border border-slate-200/80 rounded-2xl shadow-soft divide-y divide-slate-100 overflow-hidden">
+              {daysInfo.map((day) => {
+                const isToday = day.dayIndex === todayDay;
+                return (
+                  <div
+                    key={day.dayIndex}
+                    className={`flex items-center justify-between px-4 py-3.5 transition-colors ${
+                      isToday ? "bg-amber-500/5" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center ${
+                        isToday 
+                          ? "bg-amber-500 text-white shadow-sm"
+                          : "bg-slate-100 text-slate-500"
+                      }`}>
+                        {day.label}
+                      </span>
+                      <span className={`text-sm font-semibold ${isToday ? "text-slate-800" : "text-slate-600"}`}>
+                        {day.name} {isToday && <span className="ml-1 text-[10px] font-bold text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded-full">วันนี้</span>}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono font-bold text-slate-700">{day.time}</span>
+                      <span className={`h-2.5 w-2.5 rounded-full ${day.open ? "bg-emerald-500" : "bg-red-500"}`} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Demo Bypass Button */}
+        <div className="mt-8 space-y-3">
+          <button
+            onClick={onBypass}
+            className="w-full py-4 px-5 rounded-2xl text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-100 bg-slate-50 border border-slate-200/80 transition-all text-center flex items-center justify-center gap-2 active:scale-[0.98]"
+          >
+            เข้าสู่หน้าร้าน (โหมดสาธิตสำหรับทดสอบ)
+          </button>
+          <p className="text-[10px] text-slate-400 text-center">
+            * ปุ่มด้านบนสำหรับผู้ตรวจสอบเพื่อทดสอบการใช้งานในวันหยุด/นอกเวลา
+          </p>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // Sidebar
 // ─────────────────────────────────────────────────────────────
 function Sidebar({
   onClose,
   onNavigate,
   orderHistory,
+  simulateClosed,
+  setSimulateClosed,
 }: {
   onClose: () => void;
   onNavigate: (t: string) => void;
   orderHistory: OrderHistory[];
+  simulateClosed: boolean;
+  setSimulateClosed: (s: boolean) => void;
 }) {
   const items = [
     { id: "home", label: "หน้าแรก", icon: HomeIcon },
@@ -3154,6 +3578,29 @@ function Sidebar({
           </nav>
         </div>
         <div className="p-5 border-t border-white/10 space-y-4">
+          {/* Simulator Panel */}
+          <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+            <p className="text-[11px] font-bold text-white/50 uppercase tracking-wider mb-2.5">
+              โหมดผู้พัฒนา (Developer Mode)
+            </p>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-white/80">จำลองสถานะร้านปิด</span>
+              <button
+                type="button"
+                onClick={() => setSimulateClosed(!simulateClosed)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  simulateClosed ? "bg-amber-500" : "bg-white/15"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    simulateClosed ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
           <button
             onClick={onClose}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium"
