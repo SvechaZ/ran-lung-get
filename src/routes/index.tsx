@@ -58,7 +58,7 @@ export const Route = createFileRoute("/")({
 // Data
 // ─────────────────────────────────────────────────────────────
 type Addon = { id: string; name: string; price: number };
-type MenuItem = {
+export type MenuItem = {
   id: string;
   name: string;
   desc: string;
@@ -72,7 +72,7 @@ type MenuItem = {
 
 const HERO_IMG = "/thai_food_hero.png";
 
-const MENU: MenuItem[] = [
+export const MENU: MenuItem[] = [
   {
     id: "m_krapao_pork",
     name: "กระเพราหมูสับ (ข้าวราด)",
@@ -338,6 +338,8 @@ type OrderHistory = {
   orderType?: OrderType;
   tableNumber?: string;
   customerName?: string;
+  phone?: string;
+  queueNumber?: string;
   note?: string;
 };
 
@@ -374,6 +376,13 @@ function LiffApp() {
   ]);
   const [address, setAddress] = useState("");
   const [addressType, setAddressType] = useState<"home" | "work" | "dorm">("home");
+  const [deliveryDistance, setDeliveryDistance] = useState<number>(2.5);
+
+  useEffect(() => {
+    if (addressType === "home") setDeliveryDistance(2.5);
+    else if (addressType === "work") setDeliveryDistance(4.8);
+    else if (addressType === "dorm") setDeliveryDistance(7.5);
+  }, [addressType]);
   const [deliveryMethod, setDeliveryMethod] = useState<"leave" | "pickup" | null>(null);
   const [showAddressError, setShowAddressError] = useState(false);
   const [showTypeError, setShowTypeError] = useState(false);
@@ -416,6 +425,165 @@ function LiffApp() {
     (overlay === null || overlay === "menu" || overlay === "orderConfirm" || overlay === "payment");
 
   const [orderHistory, setOrderHistory] = useState<OrderHistory[]>([]);
+
+  // 1. Auth Profile check for customer
+  const [user, setUser] = useState<{ name: string; phone: string } | null>(null);
+  useEffect(() => {
+    const savedUser = localStorage.getItem("ran-lung-get-user");
+    if (!savedUser) {
+      window.location.href = "/login";
+    } else {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (e) {
+        window.location.href = "/login";
+      }
+    }
+  }, []);
+
+  // 2. Tables state synchronization helpers
+  const DEFAULT_TABLES = [
+    { id: "1", label: "โต๊ะ 1", status: "available" },
+    { id: "2", label: "โต๊ะ 2", status: "occupied" },
+    { id: "3", label: "โต๊ะ 3", status: "available" },
+    { id: "4", label: "โต๊ะ 4", status: "available" },
+    { id: "5", label: "โต๊ะ 5", status: "available" },
+    { id: "6", label: "โต๊ะ 6", status: "occupied" },
+    { id: "7", label: "โต๊ะ 7", status: "available" },
+    { id: "8", label: "โต๊ะ 8", status: "available" },
+  ];
+
+  const saveTables = (updatedTables: typeof tables) => {
+    setTables(updatedTables);
+    localStorage.setItem("ran-lung-get-tables", JSON.stringify(updatedTables));
+    window.dispatchEvent(new StorageEvent("storage", {
+      key: "ran-lung-get-tables",
+      newValue: JSON.stringify(updatedTables),
+    }));
+  };
+
+  useEffect(() => {
+    const savedTables = localStorage.getItem("ran-lung-get-tables");
+    if (savedTables) {
+      try {
+        setTables(JSON.parse(savedTables));
+      } catch (e) {
+        localStorage.setItem("ran-lung-get-tables", JSON.stringify(DEFAULT_TABLES));
+      }
+    } else {
+      localStorage.setItem("ran-lung-get-tables", JSON.stringify(DEFAULT_TABLES));
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "ran-lung-get-tables" && e.newValue) {
+        try {
+          setTables(JSON.parse(e.newValue));
+        } catch (err) {}
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
+  useEffect(() => {
+    let lastValue = localStorage.getItem("ran-lung-get-tables");
+    const interval = setInterval(() => {
+      const currentValue = localStorage.getItem("ran-lung-get-tables");
+      if (currentValue !== lastValue) {
+        lastValue = currentValue;
+        if (currentValue) {
+          try {
+            setTables(JSON.parse(currentValue));
+          } catch (err) {}
+        }
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 2.5 Out of Stock Items state synchronization
+  const [outOfStockIds, setOutOfStockIds] = useState<string[]>([]);
+  useEffect(() => {
+    const saved = localStorage.getItem("ran-lung-get-out-of-stock-items");
+    if (saved) {
+      try {
+        setOutOfStockIds(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse out-of-stock items:", e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "ran-lung-get-out-of-stock-items" && e.newValue) {
+        try {
+          const ids = JSON.parse(e.newValue);
+          setOutOfStockIds(ids);
+          // If any item in cart is now out of stock, show a notification/alert
+          setCart(prev => {
+            const hasOutOfStock = prev.some(line => ids.includes(line.itemId));
+            if (hasOutOfStock) {
+              alert("ขออภัย: บางเมนูในตะกร้าของคุณหมดชั่วคราว ระบบได้ทำการปรับปรุงตะกร้าแล้ว");
+              return prev.filter(line => !ids.includes(line.itemId));
+            }
+            return prev;
+          });
+        } catch (err) {}
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
+  useEffect(() => {
+    let lastValue = localStorage.getItem("ran-lung-get-out-of-stock-items");
+    const interval = setInterval(() => {
+      const currentValue = localStorage.getItem("ran-lung-get-out-of-stock-items");
+      if (currentValue !== lastValue) {
+        lastValue = currentValue;
+        if (currentValue) {
+          try {
+            const ids = JSON.parse(currentValue);
+            setOutOfStockIds(ids);
+            // If any item in cart is now out of stock, show a notification/alert
+            setCart(prev => {
+              const hasOutOfStock = prev.some(line => ids.includes(line.itemId));
+              if (hasOutOfStock) {
+                alert("ขออภัย: บางเมนูในตะกร้าของคุณหมดชั่วคราว ระบบได้ทำการปรับปรุงตะกร้าแล้ว");
+                return prev.filter(line => !ids.includes(line.itemId));
+              }
+              return prev;
+            });
+          } catch (err) {}
+        } else {
+          setOutOfStockIds([]);
+        }
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 3. Cancel Active Order helper
+  const cancelActiveOrder = (orderNum: string) => {
+    const updated = orderHistory.map((o) => {
+      if (o.orderNumber === orderNum) {
+        // Clear table if dine-in
+        if (o.orderType === "dine-in" && o.tableNumber) {
+          const tableObj = tables.find((t) => t.label === o.tableNumber);
+          if (tableObj) {
+            const updatedTables = tables.map((t) => t.id === tableObj.id ? { ...t, status: "available" } : t);
+            saveTables(updatedTables);
+          }
+        }
+        return { ...o, status: "ยกเลิก" };
+      }
+      return o;
+    });
+    saveOrders(updated);
+  };
 
   // Load from localStorage or default mocks on mount (client-side only to avoid SSR issues)
   useEffect(() => {
@@ -512,7 +680,12 @@ function LiffApp() {
 
   const totalQty = cart.reduce((s, l) => s + l.qty, 0);
   const subtotal = cart.reduce((s, l) => s + l.price * l.qty, 0);
-  const deliveryFee = orderType === "delivery" ? 40 : 0;
+  const calculateDeliveryFee = (distance: number) => {
+    if (distance < 3) return 15;
+    if (distance <= 6) return 35;
+    return 55;
+  };
+  const deliveryFee = orderType === "delivery" ? calculateDeliveryFee(deliveryDistance) : 0;
 
   const addToCart = (line: CartLine) => setCart((c) => [...c, line]);
   const removeLine = (id: string) => setCart((c) => c.filter((l) => l.id !== id));
@@ -523,6 +696,23 @@ function LiffApp() {
     const selectedTableObj = tables.find((t) => t.id === selectedTable);
     const tableNumStr = orderType === "dine-in" && selectedTableObj ? selectedTableObj.label : undefined;
     
+    const savedUser = JSON.parse(localStorage.getItem("ran-lung-get-user") || "{}");
+
+    // Calculate queue number for takeaway
+    let takeawayQueueNum: string | undefined = undefined;
+    if (orderType === "takeaway") {
+      const currentQueueCounter = localStorage.getItem("ran-lung-get-takeaway-queue-counter");
+      let nextQueue = 1;
+      if (currentQueueCounter) {
+        const parsed = parseInt(currentQueueCounter);
+        if (!isNaN(parsed)) {
+          nextQueue = parsed + 1;
+        }
+      }
+      localStorage.setItem("ran-lung-get-takeaway-queue-counter", String(nextQueue));
+      takeawayQueueNum = `Q-${String(nextQueue).padStart(2, "0")}`;
+    }
+
     const newOrder: OrderHistory = {
       id: `hist_${Date.now()}`,
       orderNumber: orderNum,
@@ -534,6 +724,9 @@ function LiffApp() {
       status: "รอดำเนินการ",
       orderType: orderType || "delivery",
       tableNumber: tableNumStr,
+      customerName: savedUser.name || "คุณลูกค้า",
+      phone: savedUser.phone || "",
+      queueNumber: takeawayQueueNum,
     };
     
     const updatedHistory = [newOrder, ...orderHistory];
@@ -542,9 +735,8 @@ function LiffApp() {
     setHasActiveOrder(true);
 
     if (orderType === "dine-in" && selectedTable) {
-      setTables((prev) =>
-        prev.map((t) => (t.id === selectedTable ? { ...t, status: "occupied" } : t))
-      );
+      const updatedTables = tables.map((t) => (t.id === selectedTable ? { ...t, status: "occupied" } : t));
+      saveTables(updatedTables);
     }
   };
 
@@ -583,6 +775,7 @@ function LiffApp() {
             <HomeScreen
               onOpenSidebar={() => setSidebar(true)}
               orderType={orderType}
+              outOfStockIds={outOfStockIds}
               isCurrentlyClosed={isCurrentlyClosed}
               bypassRealClosed={bypassRealClosed}
               setOrderType={setOrderType}
@@ -615,6 +808,7 @@ function LiffApp() {
             <StatusScreen
               onOpenSidebar={() => setSidebar(true)}
               activeOrder={orderHistory.find((o) => o.orderNumber === activeOrderNumber) || orderHistory[0]}
+              onCancelOrder={cancelActiveOrder}
             />
           )}
         </div>
@@ -638,6 +832,7 @@ function LiffApp() {
           {overlay === "menu" && (
             <MenuOverlay
               key="menu"
+              outOfStockIds={outOfStockIds}
               onBack={() => setOverlay(null)}
               onPickItem={(it) => setSelectedItem(it)}
               onOpenCart={() => setCartDrawer(true)}
@@ -651,6 +846,9 @@ function LiffApp() {
               cart={cart}
               subtotal={subtotal}
               deliveryFee={deliveryFee}
+              deliveryDistance={deliveryDistance}
+              setDeliveryDistance={setDeliveryDistance}
+              orderType={orderType}
               onBack={() => setOverlay("menu")}
               onRemove={removeLine}
               onProceed={() => setOverlay("payment")}
@@ -1002,6 +1200,7 @@ function HomeScreen({
   setShowTypeError,
   isCurrentlyClosed,
   bypassRealClosed,
+  outOfStockIds,
 }: {
   onOpenSidebar: () => void;
   orderType: OrderType | null;
@@ -1031,6 +1230,7 @@ function HomeScreen({
   setShowTypeError: (val: boolean) => void;
   isCurrentlyClosed: boolean;
   bypassRealClosed: boolean;
+  outOfStockIds: string[];
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const scroll = (direction: "left" | "right") => {
@@ -1158,26 +1358,27 @@ function HomeScreen({
         </h3>
         {showTypeError && (
           <p className="text-xs text-red-500 font-semibold mb-3">
-            * กรุณาเลือกช่องทางการรับอาหาร (ทานที่ร้าน หรือ จัดส่งถึงที่) ก่อนเริ่มสั่งซื้อ
+            * กรุณาเลือกช่องทางการรับอาหาร (ทานที่ร้าน, จัดส่ง หรือ รับกลับบ้าน) ก่อนเริ่มสั่งซื้อ
           </p>
         )}
-        <div className={`grid grid-cols-2 gap-3 p-1.5 rounded-2xl transition-all duration-300 ${showTypeError ? "border-2 border-red-500 bg-red-50/20" : "border-2 border-transparent"}`}>
+        <div className={`grid grid-cols-3 gap-2 p-1 rounded-2xl transition-all duration-300 ${showTypeError ? "border-2 border-red-500 bg-red-50/20" : "border-2 border-transparent"}`}>
           <button
             onClick={() => {
               setOrderType("dine-in");
               setShowTypeError(false);
               setShowTablePicker(true);
             }}
-            className="rounded-xl p-4 text-left flex flex-col gap-2 cursor-pointer transition active:scale-95"
-            style={{ background: orderType === "dine-in" ? BRAND : "white", color: orderType === "dine-in" ? GOLD : BRAND }}
+            className="rounded-xl p-2.5 text-center flex flex-col items-center justify-center gap-1.5 cursor-pointer transition active:scale-95 bg-white border border-[#ece4d6]"
+            style={{
+              background: orderType === "dine-in" ? BRAND : "white",
+              color: orderType === "dine-in" ? GOLD : BRAND,
+              borderColor: orderType === "dine-in" ? BRAND : "#ece4d6",
+            }}
           >
-            <div className="flex items-center justify-between">
-              <div className="grid h-10 w-10 place-items-center rounded-md" style={{ background: orderType === "dine-in" ? "rgba(252,193,74,0.12)" : LINEN, color: orderType === "dine-in" ? GOLD : BRAND }}>
-                <Utensils size={18} />
-              </div>
+            <div className="grid h-8 w-8 place-items-center rounded-md" style={{ background: orderType === "dine-in" ? "rgba(252,193,74,0.12)" : LINEN, color: orderType === "dine-in" ? GOLD : BRAND }}>
+              <Utensils size={15} />
             </div>
-            <div className="font-semibold">ทานที่ร้าน</div>
-            {orderType === "dine-in" && <div className="text-xs">เลือกโต๊ะและเชื่อมต่อ QR</div>}
+            <div className="font-bold text-[12px]">ทานที่ร้าน</div>
           </button>
 
           <button
@@ -1185,16 +1386,35 @@ function HomeScreen({
               setOrderType("delivery");
               setShowTypeError(false);
             }}
-            className="rounded-xl p-4 text-left flex flex-col gap-2 cursor-pointer transition active:scale-95"
-            style={{ background: orderType === "delivery" ? "#f7fafb" : "white", border: `1px solid ${orderType === "delivery" ? BRAND : "#ece4d6"}`, color: BRAND }}
+            className="rounded-xl p-2.5 text-center flex flex-col items-center justify-center gap-1.5 cursor-pointer transition active:scale-95 bg-white border border-[#ece4d6]"
+            style={{
+              background: orderType === "delivery" ? BRAND : "white",
+              color: orderType === "delivery" ? GOLD : BRAND,
+              borderColor: orderType === "delivery" ? BRAND : "#ece4d6",
+            }}
           >
-            <div className="flex items-center justify-between">
-              <div className="grid h-10 w-10 place-items-center rounded-md" style={{ background: LINEN, color: BRAND }}>
-                <Bike size={18} />
-              </div>
+            <div className="grid h-8 w-8 place-items-center rounded-md" style={{ background: orderType === "delivery" ? "rgba(252,193,74,0.12)" : LINEN, color: orderType === "delivery" ? GOLD : BRAND }}>
+              <Bike size={15} />
             </div>
-            <div className="font-semibold">จัดส่งถึงที่</div>
-            {orderType === "delivery" && <div className="text-xs">กรอกที่อยู่เพื่อจัดส่ง</div>}
+            <div className="font-bold text-[12px]">จัดส่งถึงที่</div>
+          </button>
+
+          <button
+            onClick={() => {
+              setOrderType("takeaway");
+              setShowTypeError(false);
+            }}
+            className="rounded-xl p-2.5 text-center flex flex-col items-center justify-center gap-1.5 cursor-pointer transition active:scale-95 bg-white border border-[#ece4d6]"
+            style={{
+              background: orderType === "takeaway" ? BRAND : "white",
+              color: orderType === "takeaway" ? GOLD : BRAND,
+              borderColor: orderType === "takeaway" ? BRAND : "#ece4d6",
+            }}
+          >
+            <div className="grid h-8 w-8 place-items-center rounded-md" style={{ background: orderType === "takeaway" ? "rgba(252,193,74,0.12)" : LINEN, color: orderType === "takeaway" ? GOLD : BRAND }}>
+              <ShoppingBag size={15} />
+            </div>
+            <div className="font-bold text-[12px]">รับกลับบ้าน</div>
           </button>
         </div>
       </div>
@@ -1226,6 +1446,16 @@ function HomeScreen({
               )}
               {orderType === "dine-in" && (
                 <DineInBlock selectedTable={selectedTable} onOpenPicker={() => setShowTablePicker(true)} />
+              )}
+              {orderType === "takeaway" && (
+                <div className="space-y-1.5 p-1 text-center sm:text-left">
+                  <h4 className="font-bold text-sm text-[#002e47] flex items-center justify-center sm:justify-start gap-1.5">
+                    <ShoppingBag size={16} /> รับกลับบ้าน (Take Away)
+                  </h4>
+                  <p className="text-xs text-slate-500 leading-normal">
+                    ร้านจะจัดเตรียมแพ็กอาหารใส่กล่องให้อย่างดี คุณสามารถมารับอาหารได้ที่เคาน์เตอร์ร้านเมื่อสถานะเปลี่ยนเป็น <strong>"พร้อมเสิร์ฟ"</strong>
+                  </p>
+                </div>
               )}
             </motion.div>
           </AnimatePresence>
@@ -1272,12 +1502,23 @@ function HomeScreen({
                       orderTypeRef.current?.scrollIntoView({ behavior: "smooth" });
                       return;
                     }
+                    if (outOfStockIds.includes(m.id)) {
+                      alert("ขออภัย: เมนูนี้หมดชั่วคราว");
+                      return;
+                    }
                     onPickItem(m);
                   }}
-                  className="bg-white rounded-2xl p-3 shadow-soft cursor-pointer active:scale-[0.99] transition-transform min-w-[220px] w-56 shrink-0"
+                  className={`bg-white rounded-2xl p-3 shadow-soft transition-transform min-w-[220px] w-56 shrink-0 ${outOfStockIds.includes(m.id) ? "opacity-75 cursor-not-allowed" : "cursor-pointer active:scale-[0.99]"}`}
                 >
                   <div className="relative h-36 w-full overflow-hidden rounded-xl mb-3">
-                    <img src={encodeURI(String(m.image))} alt={m.name} className="h-full w-full object-cover" />
+                    <img src={encodeURI(String(m.image))} alt={m.name} className={`h-full w-full object-cover ${outOfStockIds.includes(m.id) ? "grayscale opacity-40" : ""}`} />
+                    {outOfStockIds.includes(m.id) && (
+                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                        <span className="bg-red-500 text-white text-xs font-black px-2.5 py-1 rounded-xl shadow-md tracking-wider">
+                          หมดชั่วคราว
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0 flex flex-col">
                     <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider" style={{ color: GOLD }}>
@@ -1295,8 +1536,10 @@ function HomeScreen({
                         ฿{m.price}
                       </span>
                       <button
+                        disabled={outOfStockIds.includes(m.id)}
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (outOfStockIds.includes(m.id)) return;
                           if (!orderType) {
                             setShowTypeError(true);
                             orderTypeRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1313,8 +1556,8 @@ function HomeScreen({
                           }
                           onPickItem(m);
                         }}
-                        className="grid h-9 w-9 place-items-center rounded-full shadow-soft cursor-pointer"
-                        style={{ background: BRAND, color: GOLD }}
+                        className={`grid h-9 w-9 place-items-center rounded-full shadow-soft transition ${outOfStockIds.includes(m.id) ? "bg-slate-200 text-slate-400 cursor-not-allowed" : "cursor-pointer"}`}
+                        style={outOfStockIds.includes(m.id) ? {} : { background: BRAND, color: GOLD }}
                       >
                         <Plus size={18} />
                       </button>
@@ -2011,12 +2254,14 @@ function ItemModal({
 // Menu Overlay
 // ─────────────────────────────────────────────────────────────
 function MenuOverlay({
+  outOfStockIds,
   onBack,
   onPickItem,
   onOpenCart,
   totalQty,
   subtotal,
 }: {
+  outOfStockIds: string[];
   onBack: () => void;
   onPickItem: (m: MenuItem) => void;
   onOpenCart: () => void;
@@ -2169,8 +2414,17 @@ function MenuOverlay({
             </div>
           ) : (
             filteredAndSortedItems.map((m) => (
-              <div key={m.id} className="w-full bg-white rounded-2xl p-3 shadow-soft flex items-start gap-3">
-                <img src={encodeURI(String(m.image))} alt={m.name} className="h-20 w-20 rounded-xl object-cover flex-shrink-0" />
+              <div key={m.id} className={`w-full bg-white rounded-2xl p-3 shadow-soft flex items-start gap-3 ${outOfStockIds.includes(m.id) ? "opacity-75" : ""}`}>
+                <div className="h-20 w-20 rounded-xl overflow-hidden flex-shrink-0 relative">
+                  <img src={encodeURI(String(m.image))} alt={m.name} className={`h-full w-full object-cover ${outOfStockIds.includes(m.id) ? "grayscale opacity-40" : ""}`} />
+                  {outOfStockIds.includes(m.id) && (
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                      <span className="bg-red-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-lg shadow-sm">
+                        หมดชั่วคราว
+                      </span>
+                    </div>
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
                   <div>
                     <div className="min-w-0">
@@ -2181,11 +2435,13 @@ function MenuOverlay({
                       <span className="font-bold text-lg" style={{ color: "#a16207" }}>฿{m.price}</span>
                       <div className="flex-shrink-0 grid place-items-center">
                         <button
+                          disabled={outOfStockIds.includes(m.id)}
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (outOfStockIds.includes(m.id)) return;
                             onPickItem(m);
                           }}
-                          className="h-10 w-10 rounded-full bg-[#002e47] text-white grid place-items-center cursor-pointer transition active:scale-95 hover:opacity-90"
+                          className={`h-10 w-10 rounded-full grid place-items-center transition ${outOfStockIds.includes(m.id) ? "bg-slate-200 text-slate-400 cursor-not-allowed" : "bg-[#002e47] text-white cursor-pointer active:scale-95 hover:opacity-90"}`}
                         >
                           <Plus size={14} />
                         </button>
@@ -2417,6 +2673,9 @@ function OrderConfirmOverlay({
   cart,
   subtotal,
   deliveryFee,
+  deliveryDistance,
+  setDeliveryDistance,
+  orderType,
   onBack,
   onRemove,
   onProceed,
@@ -2424,12 +2683,24 @@ function OrderConfirmOverlay({
   cart: CartLine[];
   subtotal: number;
   deliveryFee: number;
+  deliveryDistance: number;
+  setDeliveryDistance: (d: number) => void;
+  orderType: OrderType | null;
   onBack: () => void;
   onRemove: (id: string) => void;
   onProceed: () => void;
 }) {
-  const [phone, setPhone] = useState("");
-  const [err, setErr] = useState("");
+  const [userProfile, setUserProfile] = useState<{ name: string; phone: string }>({ name: "คุณลูกค้า", phone: "" });
+  
+  useEffect(() => {
+    const saved = localStorage.getItem("ran-lung-get-user");
+    if (saved) {
+      try {
+        setUserProfile(JSON.parse(saved));
+      } catch (e) {}
+    }
+  }, []);
+
   const grand = subtotal + deliveryFee;
 
   return (
@@ -2444,7 +2715,7 @@ function OrderConfirmOverlay({
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="grid h-10 w-10 place-items-center rounded-full bg-white/10 border border-white/15"
+            className="grid h-10 w-10 place-items-center rounded-full bg-white/10 border border-white/15 cursor-pointer"
           >
             <ChevronLeft size={20} color={GOLD} />
           </button>
@@ -2484,7 +2755,7 @@ function OrderConfirmOverlay({
             </div>
             <button
               onClick={() => onRemove(l.id)}
-              className="mt-3 w-full py-2 rounded-xl text-sm font-medium flex items-center justify-center gap-1"
+              className="mt-3 w-full py-2 rounded-xl text-sm font-medium flex items-center justify-center gap-1 cursor-pointer"
               style={{ background: "#fee2e2", color: "#dc2626" }}
             >
               <Trash2 size={14} /> ลบรายการ
@@ -2497,41 +2768,90 @@ function OrderConfirmOverlay({
             สรุปคำสั่งซื้อ
           </h3>
           <Row label="ยอดรวมอาหาร" value={`฿${subtotal}`} />
-          <Row label="ค่าจัดส่ง" value={`฿${deliveryFee}`} />
+          <Row label={orderType === "delivery" ? `ค่าจัดส่ง (${deliveryDistance.toFixed(1)} กม.)` : "ค่าจัดส่ง"} value={`฿${deliveryFee}`} />
           <div className="border-t pt-2.5 mt-2.5" style={{ borderColor: "#f1ece4" }}>
             <Row label="รวมทั้งหมด" value={`฿${grand}`} bold />
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-4 shadow-soft">
-          <label className="text-sm font-semibold flex items-center gap-2" style={{ color: BRAND }}>
-            <Phone size={14} /> เบอร์โทรสำหรับติดต่อ
-          </label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => {
-              setPhone(e.target.value.replace(/\D/g, "").slice(0, 10));
-              setErr("");
-            }}
-            placeholder="0XX-XXX-XXXX"
-            className="mt-2 w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2"
-            style={{ borderColor: err ? "#ef4444" : "#ece4d6", color: BRAND }}
-          />
-          {err && <p className="text-xs text-red-500 mt-1">{err}</p>}
+        {orderType === "delivery" && (
+          <div className="bg-white rounded-2xl p-4 shadow-soft space-y-3">
+            <h3 className="font-semibold text-sm flex items-center gap-1.5" style={{ color: BRAND }}>
+              📍 <span>คำนวณค่าจัดส่งตามระยะทางจริง</span>
+            </h3>
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs font-bold text-slate-500">
+                <span>ระยะทางจัดส่ง:</span>
+                <span className="text-[#002e47] text-sm font-extrabold">{deliveryDistance.toFixed(1)} กม.</span>
+              </div>
+              <input
+                type="range"
+                min="0.5"
+                max="15.0"
+                step="0.1"
+                value={deliveryDistance}
+                onChange={(e) => setDeliveryDistance(parseFloat(e.target.value))}
+                className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#002e47]"
+              />
+              <div className="flex justify-between text-[10px] text-slate-400">
+                <span>ใกล้ (0.5 กม.)</span>
+                <span>ไกล (15.0 กม.)</span>
+              </div>
+            </div>
+            
+            {/* Quick Presets */}
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              {[
+                { label: "บ้าน (2.5 กม.)", dist: 2.5 },
+                { label: "ที่ทำงาน (4.8 กม.)", dist: 4.8 },
+                { label: "หอพัก (7.5 กม.)", dist: 7.5 }
+              ].map(preset => (
+                <button
+                  key={preset.dist}
+                  onClick={() => setDeliveryDistance(preset.dist)}
+                  className={`py-1.5 rounded-xl text-[10px] font-bold border transition cursor-pointer ${
+                    Math.abs(deliveryDistance - preset.dist) < 0.05
+                      ? "bg-[#002e47] text-[#fcc14a] border-[#002e47]"
+                      : "bg-[#fcfbf9] text-[#5a6e7a] border-[#ece4d6] hover:bg-slate-50"
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            
+            <div className="bg-[#fff8f2] border border-[#ece4d6] rounded-xl p-2.5 text-[10px] leading-relaxed text-[#5a6e7a]">
+              <span className="font-bold text-[#002e47] block mb-0.5">ℹ️ อัตราค่าจัดส่ง:</span>
+              • น้อยกว่า 3 กม. = 15 บาท<br />
+              • 3 - 6 กม. = 35 บาท<br />
+              • มากกว่า 6 กม. = 55 บาท
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white rounded-2xl p-4 shadow-soft space-y-2">
+          <h3 className="font-semibold text-sm text-[#002e47] flex items-center gap-1.5">
+            <User size={14} /> ข้อมูลผู้สั่งซื้อ
+          </h3>
+          <div className="text-xs text-slate-600 space-y-1">
+            <p><span className="font-semibold text-slate-500">ชื่อผู้รับ:</span> {userProfile.name}</p>
+            <p><span className="font-semibold text-slate-500">เบอร์โทรติดต่อ:</span> {userProfile.phone || "ยังไม่ได้ระบุ"}</p>
+          </div>
+          <div className="border-t pt-2 mt-1">
+            <button
+              onClick={() => window.location.href = "/login"}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800 underline block cursor-pointer"
+            >
+              แก้ไขข้อมูลโปรไฟล์ / เบอร์โทรศัพท์
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="px-5 pb-8 mt-4">
         <button
-          onClick={() => {
-            if (phone.length < 10) {
-              setErr("กรุณากรอกเบอร์โทรให้ครบ 10 หลัก");
-              return;
-            }
-            onProceed();
-          }}
-          className="w-full h-12 rounded-full font-semibold flex items-center justify-center gap-2"
+          onClick={onProceed}
+          className="w-full h-12 rounded-full font-semibold flex items-center justify-center gap-2 cursor-pointer transition active:scale-95"
           style={{ background: BRAND, color: "white" }}
         >
           <CreditCard size={16} /> ไปยังช่องทางชำระเงิน · ฿{grand}
@@ -2784,9 +3104,11 @@ function SuccessFlash() {
 function StatusScreen({
   onOpenSidebar,
   activeOrder,
+  onCancelOrder,
 }: {
   onOpenSidebar: () => void;
   activeOrder?: OrderHistory;
+  onCancelOrder: (orderNum: string) => void;
 }) {
   const orderType = activeOrder?.orderType || "delivery";
   const status = activeOrder?.status || "รอดำเนินการ";
@@ -2796,6 +3118,12 @@ function StatusScreen({
         { id: 1, label: "รับออเดอร์", icon: Check, done: status !== "รอดำเนินการ", active: status === "รอดำเนินการ" },
         { id: 2, label: "กำลังทำอาหาร", icon: ChefHat, done: status === "พร้อมเสิร์ฟ" || status === "สำเร็จ", active: status === "กำลังเตรียม" || status === "กำลังทำ" },
         { id: 3, label: "เสร็จสิ้น", icon: PartyPopper, done: status === "สำเร็จ", active: status === "พร้อมเสิร์ฟ" },
+      ]
+    : orderType === "takeaway"
+    ? [
+        { id: 1, label: "รับออเดอร์", icon: Check, done: status !== "รอดำเนินการ", active: status === "รอดำเนินการ" },
+        { id: 2, label: "กำลังเตรียมอาหาร", icon: ChefHat, done: status === "พร้อมเสิร์ฟ" || status === "สำเร็จ", active: status === "กำลังเตรียม" || status === "กำลังทำ" },
+        { id: 3, label: "พร้อมรับอาหาร", icon: ShoppingBag, done: status === "สำเร็จ", active: status === "พร้อมเสิร์ฟ" },
       ]
     : [
         { id: 1, label: "รับออเดอร์", icon: Check, done: status !== "รอดำเนินการ", active: status === "รอดำเนินการ" },
@@ -2839,6 +3167,14 @@ function StatusScreen({
           desc: orderType === "dine-in" ? "อาหารเสร็จแล้ว กำลังนำไปเสิร์ฟที่โต๊ะของคุณ" : "คนขับรับอาหารและกำลังเดินทางไปส่งให้คุณ",
           icon: orderType === "dine-in" ? Utensils : Bike,
           bg: "#10b981",
+          color: "#ffffff",
+        };
+      case "ยกเลิก":
+        return {
+          title: "ยกเลิกออเดอร์แล้ว",
+          desc: "รายการสั่งซื้อนี้ได้รับการยกเลิกเรียบร้อยแล้ว",
+          icon: ShieldAlert,
+          bg: "#ef4444",
           color: "#ffffff",
         };
       case "สำเร็จ":
@@ -2894,6 +3230,24 @@ function StatusScreen({
         <p className="mt-1 text-sm px-4" style={{ color: INK_MUTED }}>
           {statusDetails.desc}
         </p>
+
+        {activeOrder?.orderType === "takeaway" && activeOrder?.queueNumber && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mt-4 px-6 py-2.5 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center bg-purple-50/50 border-purple-200 w-[90%] mx-auto"
+          >
+            <span className="text-[9px] uppercase font-black tracking-widest text-purple-600">
+              คิวรับอาหารกลับบ้าน (Takeaway Queue)
+            </span>
+            <span className="text-3xl font-black mt-0.5" style={{ color: BRAND }}>
+              {activeOrder.queueNumber}
+            </span>
+            <span className="text-[9px] text-slate-400 mt-1 text-center leading-normal font-bold">
+              * โปรดแสดงหมายเลขคิวนี้ต่อพนักงานที่เคาน์เตอร์เมื่อพร้อมเสิร์ฟ
+            </span>
+          </motion.div>
+        )}
       </div>
 
       <div className="px-5 space-y-4">
@@ -2928,63 +3282,81 @@ function StatusScreen({
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 shadow-soft">
-          <h3 className="font-bold mb-4" style={{ color: BRAND }}>
-            ติดตามสถานะ
-          </h3>
-          <div className="relative">
-            <div className="absolute left-[19px] top-2 bottom-2 w-0.5 bg-[#eef2f6]" />
-            <motion.div
-              initial={{ height: 0 }}
-              animate={{ height: `${progressHeightPercent}%` }}
-              transition={{ duration: 1.2, ease: "easeOut" }}
-              className="absolute left-[19px] top-2 w-0.5"
-              style={{ background: BRAND }}
-            />
-            <div className="space-y-5">
-              {steps.map((s, i) => {
-                const Icon = s.icon;
-                return (
-                  <div key={s.id} className="relative flex items-center gap-3">
-                    <div
-                      className="relative z-10 grid h-10 w-10 place-items-center rounded-full"
-                      style={{
-                        background: s.done ? BRAND : s.active ? GOLD : "#eef2f6",
-                        color: s.done ? GOLD : s.active ? BRAND : INK_MUTED,
-                      }}
-                    >
-                      <Icon size={18} />
-                      {s.active && (
-                        <motion.span
-                          className="absolute inset-0 rounded-full"
-                          style={{ background: GOLD }}
-                          animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0, 0.4] }}
-                          transition={{ duration: 1.8, repeat: Infinity }}
-                        />
+        {status !== "ยกเลิก" && (
+          <div className="bg-white rounded-2xl p-5 shadow-soft">
+            <h3 className="font-bold mb-4" style={{ color: BRAND }}>
+              ติดตามสถานะ
+            </h3>
+            <div className="relative">
+              <div className="absolute left-[19px] top-2 bottom-2 w-0.5 bg-[#eef2f6]" />
+              <motion.div
+                initial={{ height: 0 }}
+                animate={{ height: `${progressHeightPercent}%` }}
+                transition={{ duration: 1.2, ease: "easeOut" }}
+                className="absolute left-[19px] top-2 w-0.5"
+                style={{ background: BRAND }}
+              />
+              <div className="space-y-5">
+                {steps.map((s, i) => {
+                  const Icon = s.icon;
+                  return (
+                    <div key={s.id} className="relative flex items-center gap-3">
+                      <div
+                        className="relative z-10 grid h-10 w-10 place-items-center rounded-full"
+                        style={{
+                          background: s.done ? BRAND : s.active ? GOLD : "#eef2f6",
+                          color: s.done ? GOLD : s.active ? BRAND : INK_MUTED,
+                        }}
+                      >
+                        <Icon size={18} />
+                        {s.active && (
+                          <motion.span
+                            className="absolute inset-0 rounded-full"
+                            style={{ background: GOLD }}
+                            animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0, 0.4] }}
+                            transition={{ duration: 1.8, repeat: Infinity }}
+                          />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p
+                          className="text-sm font-semibold"
+                          style={{ color: s.done || s.active ? BRAND : INK_MUTED }}
+                        >
+                          {s.label}
+                        </p>
+                        <p className="text-xs" style={{ color: INK_MUTED }}>
+                          {s.done ? "เสร็จสมบูรณ์" : s.active ? "กำลังดำเนินการ" : "รอดำเนินการ"}
+                        </p>
+                      </div>
+                      {i === steps.length - 1 && (
+                        <span className="text-xs" style={{ color: INK_MUTED }}>
+                          {status === "สำเร็จ" ? "เสร็จสิ้น" : orderType === "dine-in" ? "10 นาที" : "14 นาที"}
+                        </span>
                       )}
                     </div>
-                    <div className="flex-1">
-                      <p
-                        className="text-sm font-semibold"
-                        style={{ color: s.done || s.active ? BRAND : INK_MUTED }}
-                      >
-                        {s.label}
-                      </p>
-                      <p className="text-xs" style={{ color: INK_MUTED }}>
-                        {s.done ? "เสร็จสมบูรณ์" : s.active ? "กำลังดำเนินการ" : "รอดำเนินการ"}
-                      </p>
-                    </div>
-                    {i === steps.length - 1 && (
-                      <span className="text-xs" style={{ color: INK_MUTED }}>
-                        {status === "สำเร็จ" ? "เสร็จสิ้น" : orderType === "dine-in" ? "10 นาที" : "14 นาที"}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* ปุ่มยกเลิกออเดอร์สำหรับลูกค้า */}
+        {activeOrder && status === "รอดำเนินการ" && (
+          <div className="mt-4 px-1">
+            <button
+              onClick={() => {
+                if (window.confirm("คุณแน่ใจหรือไม่ที่จะยกเลิกออเดอร์นี้?")) {
+                  onCancelOrder(activeOrder.orderNumber);
+                }
+              }}
+              className="w-full py-3.5 rounded-xl font-bold text-sm text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer shadow-soft"
+            >
+              ยกเลิกรายการสั่งซื้อ
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -3009,6 +3381,12 @@ function MiniOrderTracker({
         { id: 1, label: "รับออเดอร์", icon: Check, done: status !== "รอดำเนินการ", active: status === "รอดำเนินการ" },
         { id: 2, label: "กำลังทำอาหาร", icon: ChefHat, done: status === "พร้อมเสิร์ฟ" || status === "สำเร็จ", active: status === "กำลังเตรียม" || status === "กำลังทำ" },
         { id: 3, label: "เสร็จสิ้น", icon: PartyPopper, done: status === "สำเร็จ", active: status === "พร้อมเสิร์ฟ" },
+      ]
+    : orderType === "takeaway"
+    ? [
+        { id: 1, label: "รับออเดอร์", icon: Check, done: status !== "รอดำเนินการ", active: status === "รอดำเนินการ" },
+        { id: 2, label: "กำลังเตรียมอาหาร", icon: ChefHat, done: status === "พร้อมเสิร์ฟ" || status === "สำเร็จ", active: status === "กำลังเตรียม" || status === "กำลังทำ" },
+        { id: 3, label: "พร้อมรับอาหาร", icon: ShoppingBag, done: status === "สำเร็จ", active: status === "พร้อมเสิร์ฟ" },
       ]
     : [
         { id: 1, label: "รับออเดอร์", icon: Check, done: status !== "รอดำเนินการ", active: status === "รอดำเนินการ" },
@@ -3042,10 +3420,17 @@ function MiniOrderTracker({
         };
       case "พร้อมเสิร์ฟ":
         return {
-          label: orderType === "dine-in" ? "พร้อมเสิร์ฟ" : "กำลังจัดส่ง",
+          label: orderType === "dine-in" ? "พร้อมเสิร์ฟ" : orderType === "takeaway" ? "พร้อมรับอาหาร" : "กำลังจัดส่ง",
           bg: "rgba(16,185,129,0.1)",
           color: "#059669",
           dotBg: "bg-emerald-500",
+        };
+      case "ยกเลิก":
+        return {
+          label: "ยกเลิกแล้ว",
+          bg: "rgba(239,68,68,0.1)",
+          color: "#dc2626",
+          dotBg: "bg-red-500",
         };
       case "สำเร็จ":
       default:

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { MENU, MenuItem } from "./index";
 import {
   ChefHat,
   CheckCircle,
@@ -41,7 +42,9 @@ type OrderHistory = {
   status: string; // "รอดำเนินการ" | "กำลังเตรียม" | "กำลังทำ" | "พร้อมเสิร์ฟ" | "สำเร็จ"
   orderType?: OrderType;
   customerName?: string;
+  phone?: string;
   tableNumber?: string;
+  queueNumber?: string;
   note?: string;
 };
 
@@ -181,7 +184,7 @@ function HistoryOrderRow({ order }: { order: OrderHistory }) {
     detailsText = order.customerName || "คุณลูกค้า";
     typeIcon = <Bike size={14} />;
   } else if (isTakeaway) {
-    typeLabel = "รับกลับบ้าน";
+    typeLabel = order.queueNumber ? `รับกลับบ้าน (คิว ${order.queueNumber})` : "รับกลับบ้าน";
     detailsText = order.customerName || "คุณลูกค้า";
     typeIcon = <ShoppingBag size={14} />;
   }
@@ -230,15 +233,18 @@ function OrderCard({
   order,
   advanceOrderStatus,
   regressOrderStatus,
+  cancelOrder,
 }: {
   order: OrderHistory;
   advanceOrderStatus: (id: string, current: string) => void;
   regressOrderStatus: (id: string, current: string) => void;
+  cancelOrder: (id: string) => void;
 }) {
   const isWaiting = order.status === "รอดำเนินการ";
   const isCooking = order.status === "กำลังทำ" || order.status === "กำลังเตรียม";
   const isReady = order.status === "พร้อมเสิร์ฟ";
-  const isCompleted = order.status === "สำเร็จ";
+  const isCompleted = order.status === "สำเร็จ" || order.status === "ยกเลิก";
+  const isCancelled = order.status === "ยกเลิก";
 
   // Accent border colors based on status
   let borderClass = "border-[#ece4d6]";
@@ -311,14 +317,37 @@ function OrderCard({
           </span>
         </div>
         <div>
-          {detailsLarge ? (
+          {order.orderType === "takeaway" && order.queueNumber ? (
+            <div className="flex items-center gap-2">
+              <div className="text-right">
+                <span className="text-xs font-black truncate max-w-[100px] block">
+                  {detailsText}
+                </span>
+                {order.phone && (
+                  <span className="text-[9px] font-bold text-purple-700/70 block">
+                    โทร: {order.phone}
+                  </span>
+                )}
+              </div>
+              <div className="bg-purple-600 text-white font-black text-sm px-2 py-1 rounded-lg border border-purple-400 shrink-0">
+                {order.queueNumber}
+              </div>
+            </div>
+          ) : detailsLarge ? (
             <span className="text-xl font-black tracking-tight uppercase" style={{ color: BRAND }}>
               {detailsText}
             </span>
           ) : (
-            <span className="text-xs font-black truncate max-w-[140px] inline-block">
-              {detailsText}
-            </span>
+            <div className="text-right">
+              <span className="text-xs font-black truncate max-w-[140px] block">
+                {detailsText}
+              </span>
+              {order.phone && (
+                <span className="text-[10px] font-bold text-slate-500 block">
+                  โทร: {order.phone}
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -327,6 +356,9 @@ function OrderCard({
       <div className="px-4 py-2 bg-[#002e47]/5 border-b border-slate-200/60 flex items-center justify-between">
         <span className="text-xs font-extrabold text-[#002e47]">
           ออเดอร์ {order.orderNumber}
+        </span>
+        <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+          ฿{order.total}
         </span>
         {!isCompleted && <OrderTimer id={order.id} />}
       </div>
@@ -390,12 +422,30 @@ function OrderCard({
         
         {/* Progress status button */}
         {!isCompleted ? (
-          <button
-            onClick={() => advanceOrderStatus(order.id, order.status)}
-            className={`flex-1 py-3 rounded-xl font-black text-xs tracking-wider uppercase transition-colors duration-300 flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer shadow-sm ${actionBtnColor}`}
-          >
-            {actionBtnText}
-          </button>
+          <>
+            <button
+              onClick={() => advanceOrderStatus(order.id, order.status)}
+              className="flex-1 py-3 rounded-xl font-black text-xs tracking-wider uppercase transition-colors duration-300 flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer shadow-sm bg-emerald-600 hover:bg-emerald-700 text-white"
+              style={{ background: actionBtnColor.includes("blue") ? "#2563eb" : actionBtnColor.includes("emerald") ? "#059669" : "#334155" }}
+            >
+              {actionBtnText}
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm(`คุณแน่ใจหรือไม่ที่จะยกเลิกออเดอร์ ${order.orderNumber}?`)) {
+                  cancelOrder(order.id);
+                }
+              }}
+              className="p-2.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl active:scale-95 transition flex items-center justify-center cursor-pointer shadow-sm"
+              title="ยกเลิกออเดอร์"
+            >
+              <Trash2 size={16} />
+            </button>
+          </>
+        ) : isCancelled ? (
+          <div className="flex-1 py-2 text-center text-red-600 text-xs font-bold bg-red-50 border border-red-100 rounded-xl">
+            ยกเลิกออเดอร์แล้ว
+          </div>
         ) : (
           <div className="flex-1 py-2 text-center text-[#5a6e7a] text-xs font-bold bg-slate-100 rounded-xl">
             ออเดอร์สำเร็จแล้ว
@@ -414,14 +464,13 @@ function EmptyColumnMessage({ text }: { text: string }) {
     </div>
   );
 }
-
 function KitchenSidebarContent({
   view,
   setView,
   onClose,
 }: {
-  view: "kitchen" | "dashboard";
-  setView: (v: "kitchen" | "dashboard") => void;
+  view: "kitchen" | "dashboard" | "menu";
+  setView: (v: "kitchen" | "dashboard" | "menu") => void;
   onClose?: () => void;
 }) {
   return (
@@ -486,6 +535,21 @@ function KitchenSidebarContent({
             >
               <LayoutDashboard size={18} className={view === "dashboard" ? "text-[#fcc14a]" : "text-white/60"} />
               <span className="text-sm">แดชบอร์ด</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setView("menu");
+                if (onClose) onClose();
+              }}
+              className={`w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left transition duration-200 cursor-pointer ${
+                view === "menu"
+                  ? "bg-white/10 text-white shadow-inner font-black border-l-4 border-[#fcc14a]"
+                  : "text-white/70 hover:text-white hover:bg-white/5 font-medium border-l-4 border-transparent"
+              }`}
+            >
+              <ClipboardList size={18} className={view === "menu" ? "text-[#fcc14a]" : "text-white/60"} />
+              <span className="text-sm">จัดการสต็อกอาหาร</span>
             </button>
             
             <a
@@ -900,13 +964,211 @@ function DashboardView({ orders }: { orders: OrderHistory[] }) {
   );
 }
 
+function MenuManagementView() {
+  const [outOfStockIds, setOutOfStockIds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+
+  // Load out-of-stock IDs from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("ran-lung-get-out-of-stock-items");
+    if (saved) {
+      try {
+        setOutOfStockIds(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse out-of-stock items:", e);
+      }
+    }
+  }, []);
+
+  // Listen to storage sync events
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "ran-lung-get-out-of-stock-items" && e.newValue) {
+        try {
+          setOutOfStockIds(JSON.parse(e.newValue));
+        } catch (err) {
+          console.error("Sync error in out-of-stock:", err);
+        }
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
+  const toggleStock = (itemId: string) => {
+    let updated: string[];
+    if (outOfStockIds.includes(itemId)) {
+      updated = outOfStockIds.filter(id => id !== itemId);
+    } else {
+      updated = [...outOfStockIds, itemId];
+    }
+    setOutOfStockIds(updated);
+    localStorage.setItem("ran-lung-get-out-of-stock-items", JSON.stringify(updated));
+    window.dispatchEvent(new StorageEvent("storage", {
+      key: "ran-lung-get-out-of-stock-items",
+      newValue: JSON.stringify(updated),
+    }));
+  };
+
+  const categories = [
+    { id: "all", label: "ทั้งหมด" },
+    { id: "signature", label: "Signature" },
+    { id: "main", label: "อาหารจานเดียว" },
+    { id: "noodles", label: "เส้น" },
+    { id: "rice", label: "ข้าวผัด" },
+    { id: "vegetarian", label: "มังสวิรัติ" },
+    { id: "drinks", label: "เครื่องดื่ม" },
+    { id: "dessert", label: "ของหวาน" }
+  ];
+
+  const filteredMenuItems = useMemo(() => {
+    return MENU.filter(item => {
+      const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            item.desc.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === "all" || item.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [searchQuery, selectedCategory]);
+
+  return (
+    <div className="space-y-6">
+      {/* Search and Category Filters */}
+      <div className="bg-white border border-[#ece4d6] rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
+          <h2 className="text-lg font-black tracking-tight text-[#002e47]">
+            จัดการสต็อกเปิด-ปิดเมนูอาหาร
+          </h2>
+          <div className="relative max-w-md w-full">
+            <input
+              type="text"
+              placeholder="ค้นหาชื่อเมนู..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-[#fcfbf9] border border-[#ece4d6] rounded-2xl px-4 py-2.5 text-sm font-bold text-[#002e47] placeholder-[#5a6e7a]/50 focus:outline-none focus:border-[#002e47]/30 transition shadow-inner"
+            />
+          </div>
+        </div>
+
+        {/* Category Pills */}
+        <div className="flex flex-wrap gap-2">
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
+              className={`px-3 py-1.5 rounded-xl font-bold text-xs tracking-wider transition cursor-pointer ${
+                selectedCategory === cat.id
+                  ? "bg-[#002e47] text-white shadow-inner"
+                  : "bg-slate-100 text-[#5a6e7a] hover:bg-slate-200"
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Menu Items Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {filteredMenuItems.length === 0 ? (
+          <div className="py-16 text-center text-slate-400 font-bold col-span-full bg-white rounded-3xl border border-[#ece4d6] p-6 shadow-soft">
+            ไม่พบเมนูอาหารที่ค้นหา
+          </div>
+        ) : (
+          filteredMenuItems.map((item) => {
+            const isOutOfStock = outOfStockIds.includes(item.id);
+            return (
+              <div
+                key={item.id}
+                className={`bg-white border rounded-3xl p-4 flex gap-4 transition shadow-sm hover:shadow-md relative overflow-hidden ${
+                  isOutOfStock ? "border-red-200 bg-red-50/20" : "border-[#ece4d6]"
+                }`}
+              >
+                {/* Food Image */}
+                <div className="h-20 w-20 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 relative">
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className={`h-full w-full object-cover transition duration-300 ${
+                      isOutOfStock ? "grayscale opacity-50" : ""
+                    }`}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "/thai_food_hero.png";
+                    }}
+                  />
+                  {isOutOfStock && (
+                    <div className="absolute inset-0 bg-red-600/10 flex items-center justify-center">
+                      <span className="bg-red-600 text-white text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shadow-sm">
+                        หมด
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Details */}
+                <div className="flex-1 flex flex-col justify-between min-w-0">
+                  <div>
+                    <div className="flex items-center gap-1.5 justify-between">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        {item.category.toUpperCase()}
+                      </span>
+                      <span className="text-xs font-black text-[#002e47]">
+                        ฿{item.price}
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-black text-[#002e47] mt-0.5 truncate" title={item.name}>
+                      {item.name}
+                    </h3>
+                    <p className="text-[10px] font-semibold text-[#5a6e7a] line-clamp-2 mt-1 leading-relaxed">
+                      {item.desc}
+                    </p>
+                  </div>
+
+                  {/* Toggle Button */}
+                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
+                    <span className={`text-[10px] font-extrabold tracking-wide ${
+                      isOutOfStock ? "text-red-500" : "text-emerald-600"
+                    }`}>
+                      {isOutOfStock ? "● ปิดการขายชั่วคราว" : "● เปิดขายปกติ"}
+                    </span>
+                    <button
+                      onClick={() => toggleStock(item.id)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        isOutOfStock ? "bg-red-500" : "bg-emerald-500"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          isOutOfStock ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
 function KitchenMonitor() {
   const [orders, setOrders] = useState<OrderHistory[]>([]);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("active"); // "active", "รอดำเนินการ", "กำลังทำ", "พร้อมเสิร์ฟ", "สำเร็จ"
   const [typeFilter, setTypeFilter] = useState<string>("all"); // "all", "dine-in", "takeaway", "delivery"
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [view, setView] = useState<"kitchen" | "dashboard">("kitchen");
+  const [view, setView] = useState<"kitchen" | "dashboard" | "menu">("kitchen");
+
+  // Auth Check for Staff
+  useEffect(() => {
+    const token = localStorage.getItem("ran-lung-get-staff-token");
+    if (!token) {
+      window.location.href = "/login?role=staff";
+    }
+  }, []);
 
   // Load orders from localStorage
   useEffect(() => {
@@ -989,7 +1251,55 @@ function KitchenMonitor() {
 
     const updated = orders.map((o) => {
       if (o.id === orderId) {
+        // Clear table if complete
+        if (nextStatus === "สำเร็จ" && o.orderType === "dine-in" && o.tableNumber) {
+          const savedTables = localStorage.getItem("ran-lung-get-tables");
+          if (savedTables) {
+            try {
+              const parsedTables = JSON.parse(savedTables);
+              const updatedTables = parsedTables.map((t: any) => 
+                t.label === o.tableNumber ? { ...t, status: "available" } : t
+              );
+              localStorage.setItem("ran-lung-get-tables", JSON.stringify(updatedTables));
+              window.dispatchEvent(new StorageEvent("storage", {
+                key: "ran-lung-get-tables",
+                newValue: JSON.stringify(updatedTables),
+              }));
+            } catch (e) {
+              console.error("Failed to clear table status on complete:", e);
+            }
+          }
+        }
         return { ...o, status: nextStatus };
+      }
+      return o;
+    });
+    updateOrdersAndNotify(updated);
+  };
+
+  const cancelOrder = (orderId: string) => {
+    const updated = orders.map((o) => {
+      if (o.id === orderId) {
+        // Clear table if dine-in
+        if (o.orderType === "dine-in" && o.tableNumber) {
+          const savedTables = localStorage.getItem("ran-lung-get-tables");
+          if (savedTables) {
+            try {
+              const parsedTables = JSON.parse(savedTables);
+              const updatedTables = parsedTables.map((t: any) => 
+                t.label === o.tableNumber ? { ...t, status: "available" } : t
+              );
+              localStorage.setItem("ran-lung-get-tables", JSON.stringify(updatedTables));
+              window.dispatchEvent(new StorageEvent("storage", {
+                key: "ran-lung-get-tables",
+                newValue: JSON.stringify(updatedTables),
+              }));
+            } catch (e) {
+              console.error("Failed to clear table status on cancel:", e);
+            }
+          }
+        }
+        return { ...o, status: "ยกเลิก" };
       }
       return o;
     });
@@ -1290,6 +1600,8 @@ function KitchenMonitor() {
         <main className="p-3 sm:p-4 lg:p-6 w-full mx-auto flex flex-col gap-4 sm:gap-6">
           {view === "dashboard" ? (
             <DashboardView orders={orders} />
+          ) : view === "menu" ? (
+            <MenuManagementView />
           ) : (
             <>
               {/* Navigation Tabs and Channel Filters - Desktop/Tablet */}
@@ -1388,6 +1700,7 @@ function KitchenMonitor() {
                             order={o}
                             advanceOrderStatus={advanceOrderStatus}
                             regressOrderStatus={regressOrderStatus}
+                            cancelOrder={cancelOrder}
                           />
                         ))
                       )}
@@ -1418,6 +1731,7 @@ function KitchenMonitor() {
                                 order={o}
                                 advanceOrderStatus={advanceOrderStatus}
                                 regressOrderStatus={regressOrderStatus}
+                                cancelOrder={cancelOrder}
                               />
                             ))
                           )}
@@ -1447,6 +1761,7 @@ function KitchenMonitor() {
                                 order={o}
                                 advanceOrderStatus={advanceOrderStatus}
                                 regressOrderStatus={regressOrderStatus}
+                                cancelOrder={cancelOrder}
                               />
                             ))
                           )}
@@ -1476,6 +1791,7 @@ function KitchenMonitor() {
                           order={o}
                           advanceOrderStatus={advanceOrderStatus}
                           regressOrderStatus={regressOrderStatus}
+                          cancelOrder={cancelOrder}
                         />
                       ))
                     )}
@@ -1528,6 +1844,7 @@ function KitchenMonitor() {
                           order={o}
                           advanceOrderStatus={advanceOrderStatus}
                           regressOrderStatus={regressOrderStatus}
+                          cancelOrder={cancelOrder}
                         />
                       )
                     ))
