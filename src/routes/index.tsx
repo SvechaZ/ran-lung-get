@@ -334,8 +334,11 @@ type OrderHistory = {
   subtotal: number;
   delivery: number;
   total: number;
-  status: "สำเร็จ" | "กำลังจัดส่ง" | "กำลังเตรียม";
+  status: string;
   orderType?: OrderType;
+  tableNumber?: string;
+  customerName?: string;
+  note?: string;
 };
 
 const BRAND = "#002e47";
@@ -385,8 +388,8 @@ function LiffApp() {
 
     // Bangkok timezone ICT (UTC+7)
     const now = new Date();
-    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-    const thTime = new Date(utc + 3600000 * 7);
+    // Shift date to ICT (UTC+7) in milliseconds
+    const thTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
     const day = thTime.getUTCDay(); // 0 is Sunday, 6 is Saturday
     const hour = thTime.getUTCHours();
     const minute = thTime.getUTCMinutes();
@@ -412,36 +415,100 @@ function LiffApp() {
     tab === "home" && 
     (overlay === null || overlay === "menu" || overlay === "orderConfirm" || overlay === "payment");
 
-  const [orderHistory, setOrderHistory] = useState<OrderHistory[]>([
-    {
-      id: "hist_1",
-      orderNumber: "#AK-2841",
-      date: "17 มิ.ย. 2026 · 18:30",
-      items: [
-        { name: "กระเพราหมูสับ (ข้าวราด)", qty: 2, price: 60, image: "/meal/krapao.jpg" },
-        { name: "น้ำส้มคั้น", qty: 1, price: 50, image: "/meal/orange_juice.jpg" },
-      ],
-      subtotal: 170,
-      delivery: 40,
-      total: 210,
-      status: "สำเร็จ",
-      orderType: "delivery",
-    },
-    {
-      id: "hist_2",
-      orderNumber: "#AK-2835",
-      date: "15 มิ.ย. 2026 · 12:15",
-      items: [
-        { name: "ผัดซีอิ๊ว (เส้นใหญ่)", qty: 1, price: 70, image: "/meal/pad_see_ew.jpg" },
-        { name: "เฉาก๊วย", qty: 1, price: 40, image: "/meal/grass_jelly.webp" },
-      ],
-      subtotal: 110,
-      delivery: 40,
-      total: 150,
-      status: "สำเร็จ",
-      orderType: "delivery",
-    },
-  ]);
+  const [orderHistory, setOrderHistory] = useState<OrderHistory[]>([]);
+
+  // Load from localStorage or default mocks on mount (client-side only to avoid SSR issues)
+  useEffect(() => {
+    const saved = localStorage.getItem("ran-lung-get-orders");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setOrderHistory(parsed);
+          return;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    
+    // Default mocks if not found or invalid
+    const defaultHistory: OrderHistory[] = [
+      {
+        id: "hist_1",
+        orderNumber: "#AK-2841",
+        date: "17 มิ.ย. 2026 · 18:30",
+        items: [
+          { name: "กระเพราหมูสับ (ข้าวราด)", qty: 2, price: 60, image: "/meal/krapao.jpg" },
+          { name: "น้ำส้มคั้น", qty: 1, price: 50, image: "/meal/orange_juice.jpg" },
+        ],
+        subtotal: 170,
+        delivery: 40,
+        total: 210,
+        status: "สำเร็จ",
+        orderType: "delivery",
+      },
+      {
+        id: "hist_2",
+        orderNumber: "#AK-2835",
+        date: "15 มิ.ย. 2026 · 12:15",
+        items: [
+          { name: "ผัดซีอิ๊ว (เส้นใหญ่)", qty: 1, price: 70, image: "/meal/pad_see_ew.jpg" },
+          { name: "เฉาก๊วย", qty: 1, price: 40, image: "/meal/grass_jelly.webp" },
+        ],
+        subtotal: 110,
+        delivery: 40,
+        total: 150,
+        status: "สำเร็จ",
+        orderType: "delivery",
+      },
+    ];
+    setOrderHistory(defaultHistory);
+    localStorage.setItem("ran-lung-get-orders", JSON.stringify(defaultHistory));
+  }, []);
+
+  // Sync state with other tabs/windows in real-time when localStorage changes
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "ran-lung-get-orders" && e.newValue) {
+        try {
+          setOrderHistory(JSON.parse(e.newValue));
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
+  // Poll localStorage as a fallback for real-time synchronization in environments where storage events are restricted
+  useEffect(() => {
+    let lastValue = localStorage.getItem("ran-lung-get-orders");
+    const interval = setInterval(() => {
+      const currentValue = localStorage.getItem("ran-lung-get-orders");
+      if (currentValue !== lastValue) {
+        lastValue = currentValue;
+        if (currentValue) {
+          try {
+            setOrderHistory(JSON.parse(currentValue));
+          } catch (err) {
+            console.error(err);
+          }
+        }
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const saveOrders = (updatedHistory: OrderHistory[]) => {
+    setOrderHistory(updatedHistory);
+    localStorage.setItem("ran-lung-get-orders", JSON.stringify(updatedHistory));
+    window.dispatchEvent(new StorageEvent("storage", {
+      key: "ran-lung-get-orders",
+      newValue: JSON.stringify(updatedHistory),
+    }));
+  };
 
   const totalQty = cart.reduce((s, l) => s + l.qty, 0);
   const subtotal = cart.reduce((s, l) => s + l.price * l.qty, 0);
@@ -453,6 +520,9 @@ function LiffApp() {
   const saveOrderToHistory = () => {
     if (cart.length === 0) return;
     const orderNum = `#AK-${Math.floor(2848 + Math.random() * 100)}`;
+    const selectedTableObj = tables.find((t) => t.id === selectedTable);
+    const tableNumStr = orderType === "dine-in" && selectedTableObj ? selectedTableObj.label : undefined;
+    
     const newOrder: OrderHistory = {
       id: `hist_${Date.now()}`,
       orderNumber: orderNum,
@@ -461,10 +531,13 @@ function LiffApp() {
       subtotal,
       delivery: deliveryFee,
       total: subtotal + deliveryFee,
-      status: "สำเร็จ",
+      status: "รอดำเนินการ",
       orderType: orderType || "delivery",
+      tableNumber: tableNumStr,
     };
-    setOrderHistory((prev) => [newOrder, ...prev]);
+    
+    const updatedHistory = [newOrder, ...orderHistory];
+    saveOrders(updatedHistory);
     setActiveOrderNumber(orderNum);
     setHasActiveOrder(true);
 
@@ -525,6 +598,7 @@ function LiffApp() {
               setSelectedTable={setSelectedTable}
               tables={tables}
               activeOrderType={orderHistory.find((o) => o.orderNumber === activeOrderNumber)?.orderType}
+              activeOrderStatus={orderHistory.find((o) => o.orderNumber === activeOrderNumber)?.status}
               address={address}
               setAddress={setAddress}
               addressType={addressType}
@@ -915,6 +989,7 @@ function HomeScreen({
   setSelectedTable,
   tables,
   activeOrderType,
+  activeOrderStatus,
   address,
   setAddress,
   addressType,
@@ -943,6 +1018,7 @@ function HomeScreen({
   setSelectedTable: (t: string) => void;
   tables: { id: string; label: string; status: string }[];
   activeOrderType?: OrderType;
+  activeOrderStatus?: string;
   address: string;
   setAddress: (val: string) => void;
   addressType: "home" | "work" | "dorm";
@@ -1064,6 +1140,7 @@ function HomeScreen({
               orderNumber={activeOrderNumber}
               onGoToStatus={onGoToStatus}
               orderType={activeOrderType || "delivery"}
+              status={activeOrderStatus || "รอดำเนินการ"}
             />
           </motion.div>
         )}
@@ -2712,20 +2789,73 @@ function StatusScreen({
   activeOrder?: OrderHistory;
 }) {
   const orderType = activeOrder?.orderType || "delivery";
+  const status = activeOrder?.status || "รอดำเนินการ";
+
   const steps = orderType === "dine-in"
     ? [
-        { id: 1, label: "รับออเดอร์", icon: Check, done: true },
-        { id: 2, label: "กำลังทำอาหาร", icon: ChefHat, done: false, active: true },
-        { id: 3, label: "เสร็จสิ้น", icon: PartyPopper, done: false },
+        { id: 1, label: "รับออเดอร์", icon: Check, done: status !== "รอดำเนินการ", active: status === "รอดำเนินการ" },
+        { id: 2, label: "กำลังทำอาหาร", icon: ChefHat, done: status === "พร้อมเสิร์ฟ" || status === "สำเร็จ", active: status === "กำลังเตรียม" || status === "กำลังทำ" },
+        { id: 3, label: "เสร็จสิ้น", icon: PartyPopper, done: status === "สำเร็จ", active: status === "พร้อมเสิร์ฟ" },
       ]
     : [
-        { id: 1, label: "รับออเดอร์", icon: Check, done: true },
-        { id: 2, label: "กำลังเตรียมอาหาร", icon: ChefHat, done: true },
-        { id: 3, label: "คนรับอาหาร/กำลังขับไป", icon: Bike, done: false, active: true },
-        { id: 4, label: "เสร็จสิ้น", icon: PartyPopper, done: false },
+        { id: 1, label: "รับออเดอร์", icon: Check, done: status !== "รอดำเนินการ", active: status === "รอดำเนินการ" },
+        { id: 2, label: "กำลังเตรียมอาหาร", icon: ChefHat, done: status === "พร้อมเสิร์ฟ" || status === "สำเร็จ", active: status === "กำลังเตรียม" || status === "กำลังทำ" },
+        { id: 3, label: "คนรับอาหาร/กำลังขับไป", icon: Bike, done: status === "สำเร็จ", active: status === "พร้อมเสิร์ฟ" },
+        { id: 4, label: "เสร็จสิ้น", icon: PartyPopper, done: status === "สำเร็จ", active: false },
       ];
 
-  const orderItems = activeOrder
+  const doneCount = steps.filter((s) => s.done).length;
+  const hasActive = steps.some((s) => s.active);
+  let progressRatio = 0;
+  if (status === "สำเร็จ") {
+    progressRatio = 1;
+  } else if (steps.length > 1) {
+    progressRatio = (doneCount + (hasActive ? 0.5 : 0) - 0.5) / (steps.length - 1);
+  }
+  const progressHeightPercent = Math.max(0, Math.min(100, progressRatio * 100));
+
+  const statusDetails = useMemo(() => {
+    switch (status) {
+      case "รอดำเนินการ":
+        return {
+          title: "ได้รับออเดอร์แล้ว",
+          desc: "กำลังส่งรายการอาหารไปยังห้องครัว...",
+          icon: ClipboardList,
+          bg: GOLD,
+          color: BRAND,
+        };
+      case "กำลังเตรียม":
+      case "กำลังทำ":
+        return {
+          title: "กำลังปรุงอาหาร",
+          desc: orderType === "dine-in" ? "เชฟกำลังทำอาหารให้อย่างสุดฝีมือ" : "ครัวกำลังปรุงอาหารและเตรียมบรรจุกล่อง",
+          icon: ChefHat,
+          bg: "#3b82f6",
+          color: "#ffffff",
+        };
+      case "พร้อมเสิร์ฟ":
+        return {
+          title: orderType === "dine-in" ? "อาหารพร้อมเสิร์ฟ" : "เตรียมจัดส่งเรียบร้อย",
+          desc: orderType === "dine-in" ? "อาหารเสร็จแล้ว กำลังนำไปเสิร์ฟที่โต๊ะของคุณ" : "คนขับรับอาหารและกำลังเดินทางไปส่งให้คุณ",
+          icon: orderType === "dine-in" ? Utensils : Bike,
+          bg: "#10b981",
+          color: "#ffffff",
+        };
+      case "สำเร็จ":
+      default:
+        return {
+          title: "เสร็จสิ้นรายการ",
+          desc: "ขอบคุณที่อุดหนุนร้านลุงเกตุ ขอให้อร่อยกับอาหารนะ!",
+          icon: CheckCircle,
+          bg: "#22c55e",
+          color: "#ffffff",
+        };
+    }
+  }, [status, orderType]);
+
+  const StatusIcon = statusDetails.icon;
+
+  const orderItems = (activeOrder && Array.isArray(activeOrder.items))
     ? activeOrder.items
     : ([
       { name: "Premium Wagyu Don", qty: 1, price: 420 },
@@ -2753,15 +2883,16 @@ function StatusScreen({
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", damping: 12, stiffness: 180 }}
-          className="grid h-24 w-24 place-items-center rounded-full bg-green-500 shadow-lift"
+          className="grid h-24 w-24 place-items-center rounded-full shadow-lift"
+          style={{ background: statusDetails.bg }}
         >
-          <CheckCircle size={56} color="white" strokeWidth={2} />
+          <StatusIcon size={48} color={statusDetails.color} strokeWidth={2} />
         </motion.div>
         <h2 className="mt-5 text-2xl font-bold" style={{ color: BRAND }}>
-          รายการสำเร็จ
+          {statusDetails.title}
         </h2>
-        <p className="mt-1 text-sm" style={{ color: INK_MUTED }}>
-          {orderType === "dine-in" ? "รอเสิร์ฟอาหารในอีก 10 นาที" : "รอรับอาหารในอีก 14 นาที"}
+        <p className="mt-1 text-sm px-4" style={{ color: INK_MUTED }}>
+          {statusDetails.desc}
         </p>
       </div>
 
@@ -2805,7 +2936,7 @@ function StatusScreen({
             <div className="absolute left-[19px] top-2 bottom-2 w-0.5 bg-[#eef2f6]" />
             <motion.div
               initial={{ height: 0 }}
-              animate={{ height: orderType === "dine-in" ? "50%" : "66%" }}
+              animate={{ height: `${progressHeightPercent}%` }}
               transition={{ duration: 1.2, ease: "easeOut" }}
               className="absolute left-[19px] top-2 w-0.5"
               style={{ background: BRAND }}
@@ -2845,7 +2976,7 @@ function StatusScreen({
                     </div>
                     {i === steps.length - 1 && (
                       <span className="text-xs" style={{ color: INK_MUTED }}>
-                        14 นาที
+                        {status === "สำเร็จ" ? "เสร็จสิ้น" : orderType === "dine-in" ? "10 นาที" : "14 นาที"}
                       </span>
                     )}
                   </div>
@@ -2866,26 +2997,66 @@ function MiniOrderTracker({
   orderNumber,
   onGoToStatus,
   orderType,
+  status = "รอดำเนินการ",
 }: {
   orderNumber: string;
   onGoToStatus: () => void;
   orderType: OrderType;
+  status?: string;
 }) {
   const steps = orderType === "dine-in"
     ? [
-        { id: 1, label: "รับออเดอร์", icon: Check, done: true },
-        { id: 2, label: "กำลังทำอาหาร", icon: ChefHat, done: false, active: true },
-        { id: 3, label: "เสร็จสิ้น", icon: PartyPopper, done: false },
+        { id: 1, label: "รับออเดอร์", icon: Check, done: status !== "รอดำเนินการ", active: status === "รอดำเนินการ" },
+        { id: 2, label: "กำลังทำอาหาร", icon: ChefHat, done: status === "พร้อมเสิร์ฟ" || status === "สำเร็จ", active: status === "กำลังเตรียม" || status === "กำลังทำ" },
+        { id: 3, label: "เสร็จสิ้น", icon: PartyPopper, done: status === "สำเร็จ", active: status === "พร้อมเสิร์ฟ" },
       ]
     : [
-        { id: 1, label: "รับออเดอร์", icon: Check, done: true },
-        { id: 2, label: "กำลังเตรียมอาหาร", icon: ChefHat, done: true },
-        { id: 3, label: "คนรับอาหาร/กำลังขับไป", icon: Bike, done: false, active: true },
-        { id: 4, label: "เสร็จสิ้น", icon: PartyPopper, done: false },
+        { id: 1, label: "รับออเดอร์", icon: Check, done: status !== "รอดำเนินการ", active: status === "รอดำเนินการ" },
+        { id: 2, label: "กำลังเตรียมอาหาร", icon: ChefHat, done: status === "พร้อมเสิร์ฟ" || status === "สำเร็จ", active: status === "กำลังเตรียม" || status === "กำลังทำ" },
+        { id: 3, label: "คนรับอาหาร/กำลังขับไป", icon: Bike, done: status === "สำเร็จ", active: status === "พร้อมเสิร์ฟ" },
+        { id: 4, label: "เสร็จสิ้น", icon: PartyPopper, done: status === "สำเร็จ", active: false },
       ];
 
   const doneCount = steps.filter((s) => s.done).length;
-  const progressPercent = ((doneCount + 0.5) / steps.length) * 100; // halfway through active step
+  const hasActive = steps.some((s) => s.active);
+  const progressPercent = status === "สำเร็จ"
+    ? 100
+    : ((doneCount + (hasActive ? 0.5 : 0)) / steps.length) * 100;
+
+  const statusBadge = useMemo(() => {
+    switch (status) {
+      case "รอดำเนินการ":
+        return {
+          label: "รอรับออเดอร์",
+          bg: "rgba(252,193,74,0.1)",
+          color: "#d97706",
+          dotBg: "bg-amber-500",
+        };
+      case "กำลังเตรียม":
+      case "กำลังทำ":
+        return {
+          label: "กำลังปรุงอาหาร",
+          bg: "rgba(59,130,246,0.1)",
+          color: "#2563eb",
+          dotBg: "bg-blue-500",
+        };
+      case "พร้อมเสิร์ฟ":
+        return {
+          label: orderType === "dine-in" ? "พร้อมเสิร์ฟ" : "กำลังจัดส่ง",
+          bg: "rgba(16,185,129,0.1)",
+          color: "#059669",
+          dotBg: "bg-emerald-500",
+        };
+      case "สำเร็จ":
+      default:
+        return {
+          label: "เสร็จสิ้น",
+          bg: "rgba(34,197,94,0.1)",
+          color: "#166534",
+          dotBg: "bg-green-500",
+        };
+    }
+  }, [status, orderType]);
 
   return (
     <div
@@ -2914,10 +3085,10 @@ function MiniOrderTracker({
           animate={{ scale: [1, 1.03, 1] }}
           transition={{ duration: 2, repeat: Infinity }}
           className="px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1"
-          style={{ background: "rgba(59,130,246,0.08)", color: "#2563eb" }}
+          style={{ background: statusBadge.bg, color: statusBadge.color }}
         >
-          <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
-          กำลังดำเนินการ
+          <span className={`h-1.5 w-1.5 rounded-full ${statusBadge.dotBg} animate-pulse`} />
+          {statusBadge.label}
         </motion.span>
       </div>
 
@@ -3099,7 +3270,7 @@ function HistoryOverlay({
 
               {/* Order items */}
               <div className="px-4 py-3 space-y-2.5">
-                {order.items.map((item, itemIdx) => (
+                {(order.items || []).map((item, itemIdx) => (
                   <div key={itemIdx} className="flex items-center gap-3">
                     <img
                       src={encodeURI(String(item.image))}
@@ -3598,6 +3769,16 @@ function Sidebar({
                   }`}
                 />
               </button>
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-white/10">
+              <a
+                href="/kitchen"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition text-center"
+              >
+                <span>เปิดระบบจัดการครัว (Kitchen Monitor)</span>
+                <ChevronRight size={14} />
+              </a>
             </div>
           </div>
 
