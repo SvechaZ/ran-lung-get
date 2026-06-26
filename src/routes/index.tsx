@@ -1,5 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useRef, useState, useEffect } from "react";
+import {
+  initLiff,
+  isLiffLoggedIn,
+  liffLogout,
+  getLiffProfile,
+  type LiffProfile,
+} from "../lib/liff";
+import { syncLineUserToSupabase } from "../lib/supabase.service";
+import { supabase } from "../lib/supabase";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Menu,
@@ -351,6 +360,62 @@ const SURFACE = "#f8fafc";
 // Root
 // ─────────────────────────────────────────────────────────────
 function LiffApp() {
+  const navigate = useNavigate();
+  const [liffReady, setLiffReady] = useState(false);
+  const [profile, setProfile] = useState<LiffProfile | null>(null);
+
+  // ── Auth Guard (Supabase Session OR LINE LIFF) ──────────────
+  useEffect(() => {
+    let cancelled = false;
+    async function bootstrap() {
+      try {
+        // 1. ตรวจสอบ Supabase session (email/password login)
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          if (!cancelled) {
+            // Profile จาก Supabase user
+            const sbProfile: LiffProfile = {
+              userId: session.user.id,
+              displayName: session.user.email ?? "ผู้ใช้งาน",
+              pictureUrl: undefined,
+            };
+            setProfile(sbProfile);
+            setLiffReady(true);
+          }
+          return;
+        }
+
+        // 2. ถ้าไม่มี Supabase session → ลอง LIFF
+        try {
+          await initLiff();
+          if (cancelled) return;
+          if (isLiffLoggedIn()) {
+            const p = await getLiffProfile();
+            if (cancelled) return;
+            try { await syncLineUserToSupabase(p); } catch { /* silent */ }
+            if (!cancelled) {
+              setProfile(p);
+              setLiffReady(true);
+            }
+            return;
+          }
+        } catch {
+          // LIFF not configured — ok
+        }
+
+        // 3. ไม่มี session ใดเลย → redirect ไป login
+        if (!cancelled) navigate({ to: "/login" });
+      } catch (err) {
+        if (!cancelled) {
+          console.error("[Auth Guard error]", err);
+          navigate({ to: "/login" });
+        }
+      }
+    }
+    bootstrap();
+    return () => { cancelled = true; };
+  }, [navigate]);
+
   const [tab, setTab] = useState<"home" | "status">("home");
   const [overlay, setOverlay] = useState<null | "menu" | "orderConfirm" | "payment" | "history" | "contact">(null);
   const [sidebar, setSidebar] = useState(false);
@@ -381,6 +446,8 @@ function LiffApp() {
   // Simulating store closed state (for prototype testing)
   const [simulateClosed, setSimulateClosed] = useState(false);
   const [bypassRealClosed, setBypassRealClosed] = useState(false);
+
+
 
   const isCurrentlyClosed = useMemo(() => {
     if (simulateClosed) return true;
@@ -560,6 +627,33 @@ function LiffApp() {
     setShowAddressError(false);
     setShowTypeError(false);
   };
+  if (!liffReady) {
+    return (
+      <div
+        className="min-h-screen w-full flex items-center justify-center"
+        style={{
+          background:
+            "radial-gradient(circle at 20% 20%, #11304a 0%, #050c14 60%, #02060b 100%)",
+        }}
+      >
+        <div className="flex flex-col items-center gap-4">
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: "50%",
+              border: "4px solid transparent",
+              borderTopColor: "#fcc14a",
+              borderBottomColor: "#002e47",
+              animation: "spin 0.9s linear infinite",
+            }}
+          />
+          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>กำลังตรวจสอบการเข้าสู่ระบบ…</p>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -722,8 +816,16 @@ function LiffApp() {
               setSimulateClosed={(val) => {
                 setSimulateClosed(val);
                 if (val) {
-                  setBypassRealClosed(false); // Reset bypass if they explicitly simulate closed
+                  setBypassRealClosed(false);
                 }
+              }}
+              profile={profile}
+              onLogout={async () => {
+                // Sign out จาก Supabase Auth
+                await supabase.auth.signOut().catch(() => {});
+                // Sign out จาก LIFF (ถ้า login อยู่)
+                try { liffLogout(); } catch { /* ignore */ }
+                navigate({ to: "/login" });
               }}
             />
           )}
@@ -3685,12 +3787,16 @@ function Sidebar({
   orderHistory,
   simulateClosed,
   setSimulateClosed,
+  profile,
+  onLogout,
 }: {
   onClose: () => void;
   onNavigate: (t: string) => void;
   orderHistory: OrderHistory[];
   simulateClosed: boolean;
   setSimulateClosed: (s: boolean) => void;
+  profile: LiffProfile | null;
+  onLogout: () => void;
 }) {
   const items = [
     { id: "home", label: "หน้าแรก", icon: HomeIcon },
@@ -3718,12 +3824,21 @@ function Sidebar({
       >
         <div className="p-5 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="grid h-12 w-12 place-items-center rounded-full" style={{ background: GOLD, color: BRAND }}>
-              <User size={22} />
-            </div>
+            {profile?.pictureUrl ? (
+              <img
+                src={profile.pictureUrl}
+                alt={profile.displayName}
+                className="h-12 w-12 rounded-full object-cover"
+                style={{ border: "2px solid " + GOLD }}
+              />
+            ) : (
+              <div className="grid h-12 w-12 place-items-center rounded-full" style={{ background: GOLD, color: BRAND }}>
+                <User size={22} />
+              </div>
+            )}
             <div>
-              <p className="font-bold">คุณ ภัทร</p>
-              <p className="text-xs text-white/60">LINE ID · @epicurean</p>
+              <p className="font-bold">{profile?.displayName ?? "ผู้ใช้งาน"}</p>
+              <p className="text-xs text-white/60">LINE Account</p>
             </div>
           </div>
         </div>
@@ -3783,16 +3898,17 @@ function Sidebar({
           </div>
 
           <button
-            onClick={onClose}
+            onClick={onLogout}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium"
             style={{ background: "rgba(255,255,255,0.08)", color: "white" }}
           >
-            <LogOut size={16} /> ออกจากระบบ
+            <LogOut size={16} /> ออกจากระบบ LINE
           </button>
           <p className="mt-2 text-center text-[10px] text-white/40">
             © 2026 Epicurean · LINE LIFF
           </p>
         </div>
+
       </motion.aside>
     </>
   );

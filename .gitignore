@@ -16,6 +16,11 @@ dist-ssr
 .nitro
 *.local
 
+# Environment variables (contains secrets like LIFF ID)
+.env
+.env.*
+!.env.example
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
