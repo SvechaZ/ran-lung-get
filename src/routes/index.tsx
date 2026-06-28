@@ -15,13 +15,14 @@ function RootRedirector() {
   useEffect(() => {
     let cancelled = false;
 
-    async function checkUserAndRedirect() {
+    async function checkUserAndRedirect(sessionToCheck?: any) {
+      if (cancelled) return;
       try {
         let userId = null;
         let isLineLogin = false;
 
         // 1. ตรวจสอบ Supabase Session
-        const { data: { session } } = await supabase.auth.getSession();
+        const session = sessionToCheck || (await supabase.auth.getSession()).data.session;
         if (session) {
           userId = session.user.id;
         }
@@ -82,7 +83,16 @@ function RootRedirector() {
 
     checkUserAndRedirect();
 
-    return () => { cancelled = true; };
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        checkUserAndRedirect(session);
+      }
+    });
+
+    return () => { 
+      cancelled = true; 
+      authListener.subscription.unsubscribe();
+    };
   }, [navigate]);
 
   return (

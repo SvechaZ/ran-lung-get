@@ -44,12 +44,23 @@ function LoginPage() {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate({ to: "/" });
     });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        navigate({ to: "/" });
+      }
+    });
+
     // Also check LINE login (silent)
     initLiff()
       .then(() => {
         if (isLiffLoggedIn()) navigate({ to: "/" });
       })
       .catch(() => {}); // LIFF not configured — ignore
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, [navigate]);
 
   // ── Supabase email/password ───────────────────────────────────
@@ -67,9 +78,9 @@ function LoginPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
           setFormError(translateAuthError(error.message));
-        } else {
-          navigate({ to: "/" });
+          setLoading(false);
         }
+        // If success, onAuthStateChange will handle the redirect, keeping the spinner active
       } else {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) {
@@ -78,8 +89,9 @@ function LoginPage() {
           setFormSuccess("สมัครสมาชิกสำเร็จ! โปรดตรวจสอบอีเมลเพื่อยืนยันบัญชี");
           setTab("login");
         }
+        setLoading(false);
       }
-    } finally {
+    } catch {
       setLoading(false);
     }
   }
