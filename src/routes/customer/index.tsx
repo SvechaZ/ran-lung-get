@@ -364,16 +364,20 @@ function LiffApp() {
   // ── Auth Guard (Supabase Session OR LINE LIFF) ──────────────
   useEffect(() => {
     let cancelled = false;
-    async function bootstrap() {
+    let authListener: any = null;
+
+    async function bootstrap(sessionToCheck?: any) {
       try {
         // 1. ตรวจสอบ Supabase session (email/password login)
         const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
+        const finalSession = sessionToCheck || session;
+
+        if (finalSession) {
           if (!cancelled) {
             // Profile จาก Supabase user
             const sbProfile: LiffProfile = {
-              userId: session.user.id,
-              displayName: session.user.email ?? "ผู้ใช้งาน",
+              userId: finalSession.user.id,
+              displayName: finalSession.user.email ?? "ผู้ใช้งาน",
               pictureUrl: undefined,
             };
             setProfile(sbProfile);
@@ -384,7 +388,10 @@ function LiffApp() {
 
         // 2. ถ้าไม่มี Supabase session → ลอง LIFF
         try {
-          await initLiff();
+          const liffPromise = initLiff();
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("LIFF timeout")), 3000));
+          await Promise.race([liffPromise, timeoutPromise]);
+          
           if (cancelled) return;
           if (isLiffLoggedIn()) {
             const p = await getLiffProfile();
@@ -409,8 +416,21 @@ function LiffApp() {
         }
       }
     }
+
+    // Subscribe to auth changes immediately to catch race conditions
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        bootstrap(session);
+      }
+    });
+    authListener = data.subscription;
+
     bootstrap();
-    return () => { cancelled = true; };
+
+    return () => { 
+      cancelled = true; 
+      if (authListener) authListener.unsubscribe();
+    };
   }, [navigate]);
 
   const [tab, setTab] = useState<"home" | "status">("home");

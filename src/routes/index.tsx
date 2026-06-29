@@ -17,20 +17,52 @@ function RootRedirector() {
 
     async function checkUserAndRedirect(sessionToCheck?: any) {
       if (cancelled) return;
+
       try {
+        // 1. ตรวจสอบ Supabase Session
+        let session = sessionToCheck || (await supabase.auth.getSession()).data.session;
+
+        // ถ้าระบบหลักยังไม่ได้ session แต่มี access_token หรือ code ใน URL (ดักบั๊ก Supabase JS / PKCE)
+        const hasHashToken = typeof window !== "undefined" && window.location.hash.includes("access_token");
+        const hasPkceCode = typeof window !== "undefined" && window.location.search.includes("code=");
+
+        if (!session && (hasHashToken || hasPkceCode)) {
+          if (hasHashToken) {
+            const hashStr = window.location.hash.substring(1);
+            const params = new URLSearchParams(hashStr);
+            const accessToken = params.get("access_token");
+          const refreshToken = params.get("refresh_token");
+          
+          if (accessToken && refreshToken) {
+            // บังคับยัด session เข้าไปเลย ไม่ต้องรอ Event
+            const { data } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            session = data.session;
+          }
+          } else if (hasPkceCode) {
+            // PKCE Flow: ต้องรอ Supabase แลก code เป็น session แบบ Asynchronous
+            // เราแค่ return ออกไปก่อน เพื่อให้ onAuthStateChange มารับช่วงต่อ
+            return;
+          }
+        }
+
         let userId = null;
         let isLineLogin = false;
 
-        // 1. ตรวจสอบ Supabase Session
-        const session = sessionToCheck || (await supabase.auth.getSession()).data.session;
         if (session) {
           userId = session.user.id;
         }
 
         // 2. ถ้าไม่มี Supabase Session ให้ตรวจสอบ LINE LIFF
-        if (!userId) {
+        if (!userId && typeof window !== "undefined" && !window.location.hash.includes("access_token") && !window.location.hash.includes("error")) {
           try {
-            await initLiff();
+            // ป้องกัน initLiff ค้าง
+            const liffPromise = initLiff();
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("LIFF timeout")), 3000));
+            await Promise.race([liffPromise, timeoutPromise]);
+            
             if (isLiffLoggedIn()) {
               const p = await getLiffProfile();
               userId = p.userId;
@@ -38,15 +70,21 @@ function RootRedirector() {
               try { await syncLineUserToSupabase(p); } catch (e) { console.error("[RootRedirector] syncLineUserToSupabase error:", e); }
             }
           } catch (e) {
-            console.log("LIFF Init failed or not in LINE environment", e);
+            console.log("LIFF Init failed or timeout", e);
           }
         }
 
         if (cancelled) return;
 
-        // 3. ถ้าไม่มีการ Login เลย ให้ไปหน้า login
+        // 3. ถ้าไม่มีการ Login เลย ให้ไปหน้า login (แต่ต้องทำเฉพาะบน Client เท่านั้น เพื่อไม่ให้ SSR เตะกลับก่อนได้อ่าน Hash)
         if (!userId) {
-          navigate({ to: "/login" });
+          if (typeof window !== "undefined") {
+            // DEBUG: Alert URL before we lose it!
+            if (window.location.href.includes("error") || window.location.href.includes("code=") || window.location.hash) {
+              console.log("Debug: RootRedirector is sending you to login. URL was: " + window.location.href);
+            }
+            navigate({ to: "/login" });
+          }
           return;
         }
 
@@ -75,19 +113,22 @@ function RootRedirector() {
           navigate({ to: "/customer" });
         }
 
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error in RootRedirector", err);
-        if (!cancelled) navigate({ to: "/login" });
+        if (typeof window !== "undefined") {
+          // alert("RootRedirector Error: " + (err?.message || JSON.stringify(err)));
+          if (!cancelled) navigate({ to: "/login" });
+        }
       }
     }
-
-    checkUserAndRedirect();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session) {
         checkUserAndRedirect(session);
       }
     });
+
+    checkUserAndRedirect();
 
     return () => { 
       cancelled = true; 

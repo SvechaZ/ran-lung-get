@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import type { UserRow, CustomerRow } from "./supabase.types";
 import type { LiffProfile } from "./liff";
+import type { User as SupabaseAuthUser } from "@supabase/supabase-js";
 
 // ─────────────────────────────────────────────────────────────
 // User Service — จัดการข้อมูล users table
@@ -185,4 +186,72 @@ export async function syncLineUserToSupabase(profile: LiffProfile): Promise<{
   const user = await upsertUser(profile);
   const customer = await upsertCustomer(user);
   return { user, customer };
+}
+
+/**
+ * เรียกใช้หลังจาก Email/Password หรือ Google login สำเร็จ:
+ * 1. Upsert user record โดยใช้ auth_user_id
+ * 2. Upsert customer record
+ * คืนค่า { user, customer }
+ */
+export async function syncAuthUserToSupabase(authUser: SupabaseAuthUser): Promise<{
+  user: UserRow;
+  customer: CustomerRow;
+}> {
+  const now = new Date().toISOString();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const client = supabase as any;
+
+  // 1. Upsert User
+  const displayName = authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "User";
+  const { data: dbUser, error: userError } = await client
+    .from("users")
+    .upsert(
+      {
+        auth_user_id: authUser.id,
+        display_name: displayName,
+        email: authUser.email,
+        picture_url: authUser.user_metadata?.avatar_url ?? null,
+        is_active: true,
+        updated_at: now,
+        last_login_at: now,
+      },
+      {
+        onConflict: "auth_user_id",
+        ignoreDuplicates: false,
+      }
+    )
+    .select()
+    .single();
+
+  if (userError) {
+    console.error("[Supabase] syncAuthUserToSupabase (users) error:", userError);
+    throw userError;
+  }
+
+  // 2. Upsert Customer
+  const { data: dbCustomer, error: custError } = await client
+    .from("customers")
+    .upsert(
+      {
+        user_id: dbUser.id,
+        auth_user_id: authUser.id,
+        display_name: dbUser.display_name,
+        email: dbUser.email,
+        updated_at: now,
+      },
+      {
+        onConflict: "auth_user_id",
+        ignoreDuplicates: false,
+      }
+    )
+    .select()
+    .single();
+
+  if (custError) {
+    console.error("[Supabase] syncAuthUserToSupabase (customers) error:", custError);
+    throw custError;
+  }
+
+  return { user: dbUser as UserRow, customer: dbCustomer as CustomerRow };
 }

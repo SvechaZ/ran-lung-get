@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { initLiff, isLiffLoggedIn, liffLogin } from "../lib/liff";
-import { syncLineUserToSupabase } from "../lib/supabase.service";
+import { syncLineUserToSupabase, syncAuthUserToSupabase } from "../lib/supabase.service";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -41,12 +41,38 @@ function LoginPage() {
 
   // ── check if already logged in ────────────────────────────────
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      let errorDesc: string | null = null;
+      
+      // Check hash (Implicit flow)
+      if (window.location.hash) {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        errorDesc = hashParams.get("error_description");
+      }
+      
+      // Check search (PKCE flow)
+      if (!errorDesc && window.location.search) {
+        const searchParams = new URLSearchParams(window.location.search);
+        errorDesc = searchParams.get("error_description");
+      }
+
+      if (errorDesc) {
+        setFormError(decodeURIComponent(errorDesc).replace(/\+/g, " "));
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate({ to: "/" });
     });
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session) {
+        try {
+          await syncAuthUserToSupabase(session.user);
+        } catch (e) {
+          console.error("[Login] syncAuthUserToSupabase error:", e);
+        }
         navigate({ to: "/" });
       }
     });
@@ -82,12 +108,16 @@ function LoginPage() {
         }
         // If success, onAuthStateChange will handle the redirect, keeping the spinner active
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) {
           setFormError(translateAuthError(error.message));
         } else {
-          setFormSuccess("สมัครสมาชิกสำเร็จ! โปรดตรวจสอบอีเมลเพื่อยืนยันบัญชี");
-          setTab("login");
+          if (data.session) {
+            setFormSuccess("สมัครสมาชิกสำเร็จ! กำลังเข้าสู่ระบบ...");
+          } else {
+            setFormSuccess("สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ (หรือยืนยันอีเมลหากระบบต้องการ)");
+            setTab("login");
+          }
         }
         setLoading(false);
       }
@@ -117,12 +147,39 @@ function LoginPage() {
     }
   }
 
+  // ── Google Login ──────────────────────────────────────────────
+  async function handleGoogleLogin() {
+    setFormError("");
+    setLoading(true);
+    try {
+      // Remove redirectTo to let Supabase use the default Site URL configured in the dashboard.
+      // This prevents strict URL matching errors (e.g., missing trailing slash).
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+      });
+      
+      if (error) {
+        console.error("Google Login Error: " + error.message);
+        setFormError(translateAuthError(error.message));
+        setLoading(false);
+      } else if (data?.url) {
+        // If it succeeds, Supabase should navigate automatically. 
+        // We log it so we know it didn't fail.
+        console.log("Redirecting to: ", data.url);
+      }
+    } catch (err: any) {
+      console.error("Google Login Exception: " + (err?.message || "Unknown error"));
+      setFormError("เกิดข้อผิดพลาดในการเชื่อมต่อกับ Google");
+      setLoading(false);
+    }
+  }
+
   function translateAuthError(msg: string): string {
     if (msg.includes("Invalid login credentials")) return "อีเมลหรือรหัสผ่านไม่ถูกต้อง";
     if (msg.includes("Email not confirmed")) return "โปรดยืนยันอีเมลก่อนเข้าสู่ระบบ";
     if (msg.includes("User already registered")) return "อีเมลนี้มีบัญชีอยู่แล้ว กรุณาเข้าสู่ระบบ";
     if (msg.includes("Password should be")) return "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร";
-    if (msg.includes("rate limit")) return "ลองใหม่อีกครู่";
+    if (msg.includes("rate limit")) return "คุณพยายามสมัครบ่อยเกินไป กรุณารอสักครู่ (หรือตั้งค่าปลดล็อค Rate Limit ใน Supabase)";
     return msg;
   }
 
@@ -425,6 +482,32 @@ function LoginPage() {
             )}
           </button>
 
+          {/* Google Login Button */}
+          <button
+            id="google-login-btn"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            type="button"
+            className="w-full flex items-center justify-center gap-3 rounded-2xl py-4 font-bold text-slate-700 text-[15px] transition-all active:scale-[0.97]"
+            style={{
+              background: loading ? "rgba(255,255,255,0.7)" : "#ffffff",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+              border: "1px solid rgba(0,0,0,0.1)",
+            }}
+          >
+            {loading ? (
+              <>
+                <SpinnerIcon />
+                กำลังเชื่อมต่อ Google…
+              </>
+            ) : (
+              <>
+                <GoogleIcon size={22} />
+                เข้าสู่ระบบด้วย Google
+              </>
+            )}
+          </button>
+
           {/* Privacy note */}
           <p
             className="text-center text-[11px] leading-relaxed px-4"
@@ -468,6 +551,17 @@ function LineIcon({ size = 24 }: { size?: number }) {
       height={size}
     >
       <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314" />
+    </svg>
+  );
+}
+
+function GoogleIcon({ size = 24 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
     </svg>
   );
 }
