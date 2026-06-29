@@ -26,7 +26,9 @@ import {
   TrendingUp,
   Users,
   DollarSign,
-  BarChart3
+  BarChart3,
+  Bell,
+  ShieldAlert
 } from "lucide-react";
 
 // Types matching index.tsx
@@ -39,11 +41,14 @@ type OrderHistory = {
   subtotal: number;
   delivery: number;
   total: number;
-  status: string; // "รอดำเนินการ" | "กำลังเตรียม" | "กำลังทำ" | "พร้อมเสิร์ฟ" | "สำเร็จ"
+  status: string; // "รอดำเนินการ" | "กำลังเตรียม" | "กำลังทำ" | "พร้อมเสิร์ฟ" | "สำเร็จ" | "ขอคืนเงิน" | "ยกเลิกแล้ว"
   orderType?: OrderType;
   customerName?: string;
   tableNumber?: string;
   note?: string;
+  cancelReason?: string;
+  cancelNote?: string;
+  refundPromptPay?: string;
 };
 
 export const Route = createFileRoute("/kitchen")({
@@ -105,6 +110,30 @@ function playNotificationSound() {
     osc2.stop(ctx.currentTime + 0.85);
   } catch (e) {
     console.error("Audio chime synthesiser:", e);
+  }
+}
+
+// Warning sound for refund requests (3 rapid mid-pitch warning beeps)
+function playRefundSound() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    
+    [0, 0.18, 0.36].forEach((delay) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(880, ctx.currentTime + delay);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.15);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.15);
+    });
+  } catch (e) {
+    console.error(e);
   }
 }
 
@@ -236,17 +265,25 @@ function OrderCard({
   advanceOrderStatus: (id: string, current: string) => void;
   regressOrderStatus: (id: string, current: string) => void;
 }) {
-  const isWaiting = order.status === "รอดำเนินการ";
+  const [copied, setCopied] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const isWaiting = order.status === "รอดำเนินการ" || order.status === "รอรับออเดอร์";
   const isCooking = order.status === "กำลังทำ" || order.status === "กำลังเตรียม";
   const isReady = order.status === "พร้อมเสิร์ฟ";
   const isCompleted = order.status === "สำเร็จ";
+  const isRefund = order.status === "ขอคืนเงิน";
 
   // Accent border colors based on status
   let borderClass = "border-[#ece4d6]";
   let actionBtnText = "เริ่มทำ";
   let actionBtnColor = "bg-[#002e47] text-white hover:bg-[#001f30]";
   
-  if (isWaiting) {
+  if (isRefund) {
+    borderClass = "border-red-500 shadow-[0_8px_20px_rgba(239,68,68,0.12)] bg-red-50/15";
+    actionBtnText = "โอนเงินคืน & ยกเลิก";
+    actionBtnColor = "bg-red-600 hover:bg-red-700 text-white";
+  } else if (isWaiting) {
     borderClass = "border-amber-400/80 shadow-[0_8px_20px_rgba(245,158,11,0.06)]";
     actionBtnText = "เริ่มปรุงอาหาร";
     actionBtnColor = "bg-blue-600 hover:bg-blue-700 text-white";
@@ -301,8 +338,23 @@ function OrderCard({
 
   return (
     <div
-      className={`shrink-0 rounded-2xl border-2 overflow-hidden flex flex-col shadow-soft transition-colors duration-300 ${cardBg} ${leftBorderClass} ${borderClass}`}
+      className={`shrink-0 rounded-2xl border-2 overflow-hidden flex flex-col shadow-soft transition-colors duration-300 ${cardBg} ${leftBorderClass} ${borderClass} ${
+        isRefund ? "animate-[pulse_2s_infinite]" : ""
+      }`}
     >
+      {/* Flashing Refund Requested Alert Header */}
+      {isRefund && (
+        <div className="bg-red-500 text-white text-xs font-black px-4 py-2 flex items-center justify-between border-b border-red-600 animate-pulse">
+          <div className="flex items-center gap-1.5">
+            <ShieldAlert size={14} />
+            <span>⚠️ ลูกค้าขอคืนเงิน</span>
+          </div>
+          <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-extrabold">
+            ยอดคืน ฿{order.total}
+          </span>
+        </div>
+      )}
+
       {/* High-Contrast Dine-In vs Delivery Top Banner */}
       <div className={`px-4 py-3 flex items-center justify-between ${bannerBg}`}>
         <div className="flex items-center gap-2">
@@ -365,7 +417,7 @@ function OrderCard({
 
         {/* Special Instructions & Notes */}
         {order.note && (
-          <div className="p-2.5 bg-red-50 border border-red-155 rounded-xl">
+          <div className="p-2.5 bg-red-50 border border-red-150 rounded-xl">
             <span className="text-[9px] font-bold text-red-600 uppercase tracking-wider block mb-0.5">
               หมายเหตุลูกค้า:
             </span>
@@ -374,12 +426,58 @@ function OrderCard({
             </span>
           </div>
         )}
+
+        {/* Refund Requested Details Banner */}
+        {isRefund && (
+          <div className="space-y-2.5">
+            {/* Reason */}
+            <div className="p-2.5 bg-red-50/50 border border-red-100 rounded-xl">
+              <span className="text-[9px] font-bold text-red-600 uppercase tracking-wider block mb-0.5">
+                เหตุผลขอคืนเงิน:
+              </span>
+              <span className="text-xs font-extrabold text-red-700 block leading-normal">
+                {order.cancelReason}
+                {order.cancelNote && (
+                  <span className="block mt-0.5 text-[10px] text-slate-500 font-medium italic">
+                    "{order.cancelNote}"
+                  </span>
+                )}
+              </span>
+            </div>
+
+            {/* PromptPay Transfer */}
+            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
+                  ช่องทางคืนเงิน:
+                </span>
+                <span className="text-xs font-extrabold text-[#002e47] block truncate">
+                  {order.refundPromptPay}
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText(order.refundPromptPay || "").catch(() => {});
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                className={`text-[9px] font-bold px-2 py-1 rounded-md shrink-0 transition active:scale-95 cursor-pointer ${
+                  copied
+                    ? "bg-emerald-500 text-white"
+                    : "bg-white border border-[#ece4d6] text-[#002e47] hover:bg-slate-50"
+                }`}
+              >
+                {copied ? "ก๊อปปี้แล้ว" : "ก๊อปปี้"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Actions Section */}
       <div className="p-3 bg-[#002e47]/5 border-t border-slate-200/60 flex gap-2">
         {/* Undo Revert state */}
-        {!isWaiting && !isCompleted && (
+        {!isWaiting && !isCompleted && !isRefund && (
           <button
             onClick={() => regressOrderStatus(order.id, order.status)}
             className="p-2.5 bg-white hover:bg-slate-100 text-[#5a6e7a] border border-slate-200 rounded-xl active:scale-95 transition flex items-center justify-center cursor-pointer shadow-sm"
@@ -390,7 +488,14 @@ function OrderCard({
         )}
         
         {/* Progress status button */}
-        {!isCompleted ? (
+        {isRefund ? (
+          <button
+            onClick={() => setShowConfirm(true)}
+            className="flex-1 py-3 rounded-xl font-black text-xs tracking-wider uppercase transition-colors duration-300 flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer shadow-sm bg-red-600 hover:bg-red-700 text-white"
+          >
+            โอนเงินคืนสำเร็จ & ยกเลิก
+          </button>
+        ) : !isCompleted ? (
           <button
             onClick={() => advanceOrderStatus(order.id, order.status)}
             className={`flex-1 py-3 rounded-xl font-black text-xs tracking-wider uppercase transition-colors duration-300 flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer shadow-sm ${actionBtnColor}`}
@@ -403,6 +508,41 @@ function OrderCard({
           </div>
         )}
       </div>
+
+      {/* Confirm Action Modal Inside OrderCard */}
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+            onClick={() => setShowConfirm(false)}
+          />
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm z-10 border border-[#ece4d6] shadow-2xl relative text-[#002e47]">
+            <h4 className="text-base font-black tracking-tight mb-2">
+              ยืนยันการคืนเงิน & ยกเลิกออเดอร์
+            </h4>
+            <p className="text-[11px] text-slate-500 leading-relaxed mb-4">
+              กรุณาโอนเงินคืนสำเร็จจำนวน <strong>฿{order.total}</strong> ไปยัง <strong>{order.refundPromptPay}</strong> เรียบร้อยแล้วก่อนกดยืนยันปุ่มนี้
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="w-full py-2.5 rounded-xl font-bold text-[10px] bg-slate-100 text-slate-500 cursor-pointer hover:bg-slate-200"
+              >
+                ย้อนกลับ
+              </button>
+              <button
+                onClick={() => {
+                  advanceOrderStatus(order.id, order.status);
+                  setShowConfirm(false);
+                }}
+                className="w-full py-2.5 rounded-xl font-bold text-[10px] text-white cursor-pointer hover:opacity-95 bg-emerald-600"
+              >
+                โอนเรียบร้อยแล้ว
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -613,14 +753,246 @@ function MenuManagementView() {
   );
 }
 
+
+// ─── การจัดการคืนเงิน / ยกเลิกคำขอ (Refund & Cancellation Management) ────────
+function RefundManagementView() {
+  const [orders, setOrders] = useState<OrderHistory[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<OrderHistory | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Load orders from localStorage and listen to updates
+  useEffect(() => {
+    const saved = localStorage.getItem("ran-lung-get-orders");
+    if (saved) {
+      try {
+        setOrders(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse orders:", e);
+      }
+    }
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "ran-lung-get-orders" && e.newValue) {
+        try {
+          setOrders(JSON.parse(e.newValue));
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  const refundRequests = useMemo(() => {
+    return orders.filter((o) => o.status === "ขอคืนเงิน");
+  }, [orders]);
+
+  const handleCopy = (promptPay: string, orderId: string) => {
+    navigator.clipboard?.writeText(promptPay).catch(() => {});
+    setCopiedId(orderId);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleConfirmRefund = (orderId: string) => {
+    const updated = orders.map((o) => {
+      if (o.id === orderId) {
+        return { ...o, status: "ยกเลิกแล้ว" };
+      }
+      return o;
+    });
+
+    setOrders(updated);
+    localStorage.setItem("ran-lung-get-orders", JSON.stringify(updated));
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "ran-lung-get-orders",
+        newValue: JSON.stringify(updated),
+      })
+    );
+    setSelectedOrder(null);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-white border border-[#ece4d6] rounded-3xl p-5 sm:p-6 shadow-sm flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-black tracking-tight text-[#002e47]">
+            คำขอคืนเงิน & ยกเลิกออเดอร์
+          </h2>
+          <p className="text-xs text-slate-500 font-semibold mt-1">
+            รายการขอยกเลิกและแจ้งคืนเงินจากลูกค้า (ตรวจสอบสลิปการโอนและสิทธิ์ยกเลิก)
+          </p>
+        </div>
+        <div className="bg-red-50 text-red-600 font-extrabold text-xs px-3.5 py-1.5 rounded-full border border-red-100 flex items-center gap-1.5">
+          <span className="animate-pulse">●</span>
+          <span>ค้างดำเนินการ: {refundRequests.length} รายการ</span>
+        </div>
+      </div>
+
+      {/* Grid List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {refundRequests.length === 0 ? (
+          <div className="py-16 text-center text-slate-400 font-bold col-span-full bg-white rounded-3xl border border-[#ece4d6] p-6 shadow-sm">
+            ไม่มีคำขอคืนเงินค้างอยู่ในขณะนี้
+          </div>
+        ) : (
+          refundRequests.map((order) => (
+            <div
+              key={order.id}
+              className="bg-white border border-red-100 rounded-3xl p-5 shadow-sm hover:shadow-md transition relative overflow-hidden flex flex-col justify-between"
+            >
+              {/* Highlight bar */}
+              <div className="absolute top-0 inset-x-0 h-1.5 bg-red-500" />
+
+              <div className="space-y-4">
+                {/* Order Header */}
+                <div className="flex items-center justify-between pt-1">
+                  <div>
+                    <h3 className="font-black text-[#002e47] text-base">
+                      {order.orderNumber}
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+                      {order.date}
+                    </p>
+                  </div>
+                  <span className="text-xs font-black text-red-500 bg-red-50 border border-red-100 px-2 py-0.5 rounded-md">
+                    ขอคืนเงิน
+                  </span>
+                </div>
+
+                {/* Items summary */}
+                <div className="bg-[#fcfbf9] border border-[#ece4d6] rounded-2xl p-3 text-xs space-y-1.5">
+                  <p className="font-extrabold text-[#002e47] mb-1">รายการอาหาร</p>
+                  {order.items.map((item, idx) => (
+                    <div key={idx} className="flex justify-between font-semibold text-slate-600">
+                      <span>
+                        {item.name} <span className="text-[10px] text-slate-400">×{item.qty}</span>
+                      </span>
+                      <span>฿{item.price * item.qty}</span>
+                    </div>
+                  ))}
+                  <div className="border-t border-[#ece4d6] pt-1.5 mt-1 flex justify-between font-bold text-[#002e47]">
+                    <span>ยอดคืนเงินรวม</span>
+                    <span className="text-sm">฿{order.total.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {/* Reason detail */}
+                <div className="space-y-1">
+                  <p className="text-[10px] font-extrabold text-[#5a6e7a] tracking-wider uppercase">
+                    เหตุผลในการยกเลิก
+                  </p>
+                  <p className="text-xs font-semibold text-red-600 bg-red-50/50 p-2.5 rounded-xl border border-red-100/50 leading-relaxed">
+                    {order.cancelReason}
+                    {order.cancelNote && (
+                      <span className="block mt-1 text-[11px] text-slate-500 font-medium italic">
+                        "{order.cancelNote}"
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                {/* PromptPay widget */}
+                <div className="space-y-1">
+                  <p className="text-[10px] font-extrabold text-[#5a6e7a] tracking-wider uppercase">
+                    ข้อมูลโอนเงินคืน
+                  </p>
+                  <div className="flex items-center justify-between gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                    <span className="text-xs font-black text-[#002e47] truncate">
+                      {order.refundPromptPay}
+                    </span>
+                    <button
+                      onClick={() => handleCopy(order.refundPromptPay || "", order.id)}
+                      className={`text-[10px] font-bold px-2 py-1 rounded-lg shrink-0 transition active:scale-95 cursor-pointer ${
+                        copiedId === order.id
+                          ? "bg-emerald-500 text-white"
+                          : "bg-white border border-[#ece4d6] text-[#002e47] hover:bg-slate-50"
+                      }`}
+                    >
+                      {copiedId === order.id ? "ก๊อปปี้แล้ว" : "ก๊อปปี้"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-5 pt-3 border-t border-slate-100 flex gap-2">
+                <button
+                  onClick={() => setSelectedOrder(order)}
+                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-[#002e47] text-white hover:opacity-95 transition cursor-pointer text-center"
+                >
+                  ดำเนินการคืนเงิน
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Confirmation Modal */}
+      {selectedOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+            onClick={() => setSelectedOrder(null)}
+          />
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md z-10 border border-[#ece4d6] shadow-2xl relative text-[#002e47]">
+            <h3 className="text-lg font-black tracking-tight mb-2">
+              ยืนยันการคืนเงิน & ยกเลิกออเดอร์
+            </h3>
+            <p className="text-xs text-slate-500 leading-relaxed mb-4">
+              กรุณาทำรายการโอนเงินคืนนอกระบบจำนวน <strong>฿{selectedOrder.total.toLocaleString()}</strong> 
+              ไปยังพร้อมเพย์ <strong>{selectedOrder.refundPromptPay}</strong> ให้สำเร็จก่อนกดยืนยันปุ่มนี้
+            </p>
+
+            <div className="space-y-3 mb-5 p-3.5 bg-red-50/50 rounded-2xl border border-red-100 text-xs">
+              <div className="flex justify-between font-semibold">
+                <span>เลขออเดอร์:</span>
+                <span className="font-bold">{selectedOrder.orderNumber}</span>
+              </div>
+              <div className="flex justify-between font-semibold">
+                <span>ช่องทางคืนเงิน:</span>
+                <span className="font-black text-red-600">{selectedOrder.refundPromptPay}</span>
+              </div>
+              <div className="flex justify-between font-semibold">
+                <span>ยอดเงินที่ต้องโอนคืน:</span>
+                <span className="font-black text-base text-red-600">฿{selectedOrder.total.toLocaleString()}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setSelectedOrder(null)}
+                className="w-full py-3 rounded-xl font-bold text-xs bg-slate-100 text-slate-500 cursor-pointer hover:bg-slate-200"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={() => handleConfirmRefund(selectedOrder.id)}
+                className="w-full py-3 rounded-xl font-bold text-xs text-white cursor-pointer hover:opacity-95 bg-emerald-600"
+              >
+                ยืนยันการโอนสำเร็จ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function KitchenSidebarContent({
   view,
   setView,
   onClose,
+  refundCount = 0,
 }: {
-  view: "kitchen" | "dashboard" | "menu";
-  setView: (v: "kitchen" | "dashboard" | "menu") => void;
+  view: "kitchen" | "dashboard" | "menu" | "refunds";
+  setView: (v: "kitchen" | "dashboard" | "menu" | "refunds") => void;
   onClose?: () => void;
+  refundCount?: number;
 }) {
   return (
     <div className="flex flex-col h-full bg-[#002e47] text-white select-none">
@@ -699,6 +1071,29 @@ function KitchenSidebarContent({
             >
               <ClipboardList size={18} className={view === "menu" ? "text-[#fcc14a]" : "text-white/60"} />
               <span className="text-sm">จัดการวัตถุดิบ</span>
+            </button>
+
+            {/* Cancel Notification / Refund view menu option */}
+            <button
+              onClick={() => {
+                setView("refunds");
+                if (onClose) onClose();
+              }}
+              className={`w-full flex items-center justify-between px-3 py-3.5 rounded-xl text-left transition duration-200 cursor-pointer ${
+                view === "refunds"
+                  ? "bg-white/10 text-white shadow-inner font-black border-l-4 border-[#fcc14a]"
+                  : "text-white/70 hover:text-white hover:bg-white/5 font-medium border-l-4 border-transparent"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Bell size={18} className={view === "refunds" ? "text-[#fcc14a]" : "text-white/60"} />
+                <span className="text-sm">แจ้งเตือนการยกเลิก</span>
+              </div>
+              {refundCount > 0 && (
+                <span className="bg-red-500 text-white font-black text-[10px] px-2 py-0.5 rounded-full animate-bounce">
+                  {refundCount}
+                </span>
+              )}
             </button>
 
             <a
@@ -1122,7 +1517,7 @@ function KitchenMonitor() {
   const [statusFilter, setStatusFilter] = useState<string>("active"); // "active", "รอดำเนินการ", "กำลังทำ", "พร้อมเสิร์ฟ", "สำเร็จ"
   const [typeFilter, setTypeFilter] = useState<string>("all"); // "all", "dine-in", "takeaway", "delivery"
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [view, setView] = useState<"kitchen" | "dashboard" | "menu">("kitchen");
+  const [view, setView] = useState<"kitchen" | "dashboard" | "menu" | "refunds">("kitchen");
 
   // Load orders from localStorage
   useEffect(() => {
@@ -1144,10 +1539,19 @@ function KitchenMonitor() {
           const newOrders: OrderHistory[] = JSON.parse(e.newValue);
           
           setOrders((prev) => {
-            const prevIds = new Set(prev.map(o => o.id));
-            const hasNew = newOrders.some(o => !prevIds.has(o.id));
-            if (hasNew && soundEnabled) {
-              playNotificationSound();
+            if (soundEnabled) {
+              const oldRefunds = prev.filter(o => o.status === "ขอคืนเงิน").map(o => o.id);
+              const hasNewRefund = newOrders.some(o => o.status === "ขอคืนเงิน" && !oldRefunds.includes(o.id));
+              
+              if (hasNewRefund) {
+                playRefundSound();
+              } else {
+                const prevIds = new Set(prev.map(o => o.id));
+                const hasNew = newOrders.some(o => !prevIds.has(o.id));
+                if (hasNew) {
+                  playNotificationSound();
+                }
+              }
             }
             return newOrders;
           });
@@ -1171,10 +1575,19 @@ function KitchenMonitor() {
           try {
             const newOrders: OrderHistory[] = JSON.parse(currentValue);
             setOrders((prev) => {
-              const prevIds = new Set(prev.map(o => o.id));
-              const hasNew = newOrders.some(o => !prevIds.has(o.id));
-              if (hasNew && soundEnabled) {
-                playNotificationSound();
+              if (soundEnabled) {
+                const oldRefunds = prev.filter(o => o.status === "ขอคืนเงิน").map(o => o.id);
+                const hasNewRefund = newOrders.some(o => o.status === "ขอคืนเงิน" && !oldRefunds.includes(o.id));
+                
+                if (hasNewRefund) {
+                  playRefundSound();
+                } else {
+                  const prevIds = new Set(prev.map(o => o.id));
+                  const hasNew = newOrders.some(o => !prevIds.has(o.id));
+                  if (hasNew) {
+                    playNotificationSound();
+                  }
+                }
               }
               return newOrders;
             });
@@ -1299,15 +1712,26 @@ function KitchenMonitor() {
     let cooking = 0;
     let ready = 0;
     let completed = 0;
+    let refunds = 0;
 
     orders.forEach((o) => {
-      if (o.status === "รอดำเนินการ") waiting++;
-      else if (o.status === "กำลังทำ" || o.status === "กำลังเตรียม") cooking++;
-      else if (o.status === "พร้อมเสิร์ฟ") ready++;
-      else if (o.status === "สำเร็จ") completed++;
+      // Map customer's 'รอรับออเดอร์' to kitchen's 'รอดำเนินการ'
+      const s = o.status;
+      if (s === "รอดำเนินการ" || s === "รอรับออเดอร์") waiting++;
+      else if (s === "กำลังทำ" || s === "กำลังเตรียม") cooking++;
+      else if (s === "พร้อมเสิร์ฟ") ready++;
+      else if (s === "สำเร็จ") completed++;
+      else if (s === "ขอคืนเงิน") refunds++;
     });
 
-    return { waiting, cooking, ready, completed, totalActive: waiting + cooking + ready };
+    return { 
+      waiting, 
+      cooking, 
+      ready, 
+      completed, 
+      refunds,
+      totalActive: waiting + cooking + ready 
+    };
   }, [orders]);
 
   // Aggregate stats group by menu name
@@ -1380,6 +1804,7 @@ function KitchenMonitor() {
                 view={view}
                 setView={setView}
                 onClose={() => setSidebarOpen(false)}
+                refundCount={stats.refunds}
               />
             </motion.aside>
           </>
@@ -1388,7 +1813,7 @@ function KitchenMonitor() {
 
       {/* Desktop Sidebar (Sticky left) */}
       <aside className="hidden md:flex flex-col w-72 h-screen shrink-0 border-r border-[#ece4d6] shadow-soft z-20">
-        <KitchenSidebarContent view={view} setView={setView} />
+        <KitchenSidebarContent view={view} setView={setView} refundCount={stats.refunds} />
       </aside>
 
       {/* Main Workspace (Takes full remaining space) */}
@@ -1401,17 +1826,26 @@ function KitchenMonitor() {
               <div className="grid h-9 w-9 place-items-center rounded-xl bg-[#002e47] text-white shadow-md">
                 {view === "kitchen" ? (
                   <ChefHat className="h-5 w-5" color={GOLD} />
+                ) : view === "refunds" ? (
+                  <Bell className="h-5 w-5" color={GOLD} />
                 ) : (
                   <LayoutDashboard className="h-5 w-5" color={GOLD} />
                 )}
               </div>
               <div>
                 <h1 className="text-base sm:text-lg font-black tracking-tight" style={{ color: BRAND }}>
-                  {view === "kitchen" ? "จอจัดการครัวลุงเกตุ" : "แดชบอร์ดภาพรวมร้านค้า"}
+                  {view === "kitchen" 
+                    ? "จอจัดการครัวลุงเกตุ" 
+                    : view === "refunds"
+                    ? "คำขอคืนเงิน & ยกเลิกออเดอร์"
+                    : "แดชบอร์ดภาพรวมร้านค้า"
+                  }
                 </h1>
                 <p className="text-[10px] sm:text-xs font-semibold text-slate-500">
                   {view === "kitchen" 
                     ? "ระบบจัดคิวอาหารและมอนิเตอร์หน้าเตา" 
+                    : view === "refunds"
+                    ? "จัดการรายการแจ้งยกเลิกและโอนเงินคืนให้ลูกค้า"
                     : "วิเคราะห์ยอดขาย จำนวนลูกค้า และสถิติร้านค้า"
                   }
                 </p>
@@ -1464,7 +1898,12 @@ function KitchenMonitor() {
               </button>
               <div>
                 <h1 className="text-sm font-black tracking-tight" style={{ color: BRAND }}>
-                  {view === "kitchen" ? "ครัวลุงเกตุ" : "แดชบอร์ดหลังบ้าน"}
+                  {view === "kitchen" 
+                    ? "ครัวลุงเกตุ" 
+                    : view === "refunds"
+                    ? "คำขอคืนเงิน"
+                    : "แดชบอร์ดหลังบ้าน"
+                  }
                 </h1>
                 <p className="text-[9px] font-bold text-slate-500">
                   {view === "kitchen" ? (
@@ -1475,6 +1914,8 @@ function KitchenMonitor() {
                         typeFilter === "takeaway" ? "กลับบ้าน" : "เดลิเวอรี่"
                       }
                     </>
+                  ) : view === "refunds" ? (
+                    "จัดการคัดลอกโอนเงินคืนลูกค้า"
                   ) : (
                     "ภาพรวมร้านค้าลุงเกตุ"
                   )}
@@ -1508,6 +1949,8 @@ function KitchenMonitor() {
             <DashboardView orders={orders} />
           ) : view === "menu" ? (
             <MenuManagementView />
+          ) : view === "refunds" ? (
+            <RefundManagementView />
           ) : (
             <>
               {/* Navigation Tabs and Channel Filters - Desktop/Tablet */}
