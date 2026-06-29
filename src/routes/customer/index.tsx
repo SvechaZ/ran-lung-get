@@ -81,7 +81,7 @@ type MenuItem = {
 
 const HERO_IMG = "/thai_food_hero.png";
 
-const MENU: MenuItem[] = [
+export const MENU: MenuItem[] = [
   {
     id: "m_krapao_pork",
     name: "กระเพราหมูสับ (ข้าวราด)",
