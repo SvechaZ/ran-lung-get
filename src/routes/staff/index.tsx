@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { MENU, MenuItem } from "./index";
+import { MENU, MenuItem } from "../customer/index";
 import {
   ChefHat,
   CheckCircle,
@@ -48,7 +48,7 @@ type OrderHistory = {
   note?: string;
 };
 
-export const Route = createFileRoute("/kitchen")({
+export const Route = createFileRoute("/staff/")({
   component: KitchenMonitor,
 });
 
@@ -553,9 +553,12 @@ function KitchenSidebarContent({
             </button>
             
             <a
-              href="/"
-              onClick={() => {
+              href="/customer"
+              onClick={(e) => {
+                e.preventDefault();
+                localStorage.removeItem("ran-lung-get-staff-token");
                 if (onClose) onClose();
+                window.location.href = "/customer";
               }}
               className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left text-white/70 hover:text-white hover:bg-white/5 font-medium transition duration-200 cursor-pointer border-l-4 border-transparent"
             >
@@ -1162,11 +1165,11 @@ function KitchenMonitor() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [view, setView] = useState<"kitchen" | "dashboard" | "menu">("kitchen");
 
-  // Auth Check for Staff
+  // Auth Check for Staff (supports both Supabase role and mock token)
   useEffect(() => {
     const token = localStorage.getItem("ran-lung-get-staff-token");
     if (!token) {
-      window.location.href = "/login?role=staff";
+      window.location.href = "/login";
     }
   }, []);
 
