@@ -16,6 +16,11 @@ export type Database = {
         Insert: CustomerInsert;
         Update: CustomerUpdate;
       };
+      tables: {
+        Row: TableRow;
+        Insert: TableInsert;
+        Update: TableUpdate;
+      };
       orders: {
         Row: OrderRow;
         Insert: OrderInsert;
@@ -36,6 +41,27 @@ export type Database = {
     };
   };
 };
+
+// ── Tables (โต๊ะในร้าน) ──────────────────────────────────────
+export type TableRow = {
+  id: string;
+  label: string;
+  status: "available" | "occupied";
+  capacity: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TableInsert = {
+  id?: string;
+  label: string;
+  status?: "available" | "occupied";
+  capacity?: number | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type TableUpdate = Partial<TableInsert>;
 
 // ── Users (ผู้ใช้งาน LINE) ──────────────────────────────────────
 export type UserRow = {

@@ -424,6 +424,7 @@ function LiffApp() {
   const [hasActiveOrder, setHasActiveOrder] = useState(false);
   const [activeOrderNumber, setActiveOrderNumber] = useState("");
   const [selectedTable, setSelectedTable] = useState("");
+  const [showTablePicker, setShowTablePicker] = useState(false);
   const [tables, setTables] = useState([
     { id: "1", label: "โต๊ะ 1", status: "available" },
     { id: "2", label: "โต๊ะ 2", status: "occupied" },
@@ -434,6 +435,37 @@ function LiffApp() {
     { id: "7", label: "โต๊ะ 7", status: "available" },
     { id: "8", label: "โต๊ะ 8", status: "available" },
   ]);
+
+  // Fetch tables from Supabase (fall back to local if table doesn't exist yet)
+  useEffect(() => {
+    async function fetchTables() {
+      try {
+        const { data, error } = await supabase
+          .from("tables")
+          .select("id, label, status")
+          .order("id");
+        if (!error && data && data.length > 0) {
+          setTables(data as any);
+        }
+      } catch { /* use local fallback */ }
+    }
+    fetchTables();
+
+    // Real-time: อัปเดตสถานะโต๊ะทันที
+    const ch = supabase
+      .channel("tables-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "tables" }, (payload) => {
+        if (payload.eventType === "UPDATE" || payload.eventType === "INSERT") {
+          const updated = payload.new as any;
+          setTables((prev) =>
+            prev.map((t) => t.id === String(updated.id) ? { ...t, ...updated, id: String(updated.id) } : t)
+          );
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(ch); };
+  }, []);
   const [address, setAddress] = useState("");
   const [addressType, setAddressType] = useState<"home" | "work" | "dorm">("home");
   const [deliveryMethod, setDeliveryMethod] = useState<"leave" | "pickup" | null>(null);
@@ -540,6 +572,19 @@ function LiffApp() {
         prev.map((t) => (t.id === selectedTable ? { ...t, status: "occupied" } : t))
       );
     }
+
+    // Push order to Supabase for real-time Staff Dashboard
+    void (supabase as any).from("orders").insert({
+      id: newOrder.id,
+      order_number: orderNum,
+      order_type: orderType || "delivery",
+      total_amount: subtotal + deliveryFee,
+      status: "pending", // Staff sees it as pending
+      items: newOrder.items,
+      table_id: orderType === "dine-in" ? selectedTable : null,
+      address: orderType === "delivery" ? address : null,
+      created_at: new Date().toISOString(),
+    });
   };
 
   const resetAll = () => {
@@ -548,9 +593,7 @@ function LiffApp() {
     setCartDrawer(false);
     setSelectedItem(null);
     setTab("home");
-    setSelectedTable("");
-    setAddress("");
-    setDeliveryMethod(null);
+    // Keep selectedTable, address, and deliveryMethod so the user can order more items without re-entering details.
     setShowAddressError(false);
     setShowTypeError(false);
   };
@@ -600,43 +643,55 @@ function LiffApp() {
         }}
       >
         <div className="absolute inset-0 overflow-y-auto no-scrollbar">
-          {tab === "home" && (
-            <HomeScreen
-              onOpenSidebar={() => setSidebar(true)}
-              orderType={orderType}
-              isCurrentlyClosed={isCurrentlyClosed}
-              bypassRealClosed={bypassRealClosed}
-              setOrderType={setOrderType}
-              onPickItem={(it) => setSelectedItem(it)}
-              onOpenCart={() => setCartDrawer(true)}
-              totalQty={totalQty}
-              subtotal={subtotal}
-              onOpenMenu={() => setOverlay("menu")}
-              hasActiveOrder={hasActiveOrder}
-              activeOrderNumber={activeOrderNumber}
-              onGoToStatus={() => setTab("status")}
-              selectedTable={selectedTable}
-              setSelectedTable={setSelectedTable}
-              tables={tables}
-              activeOrderType={orderHistory.find((o) => o.orderNumber === activeOrderNumber)?.orderType}
-              address={address}
-              setAddress={setAddress}
-              addressType={addressType}
-              setAddressType={setAddressType}
-              deliveryMethod={deliveryMethod}
-              setDeliveryMethod={setDeliveryMethod}
-              showAddressError={showAddressError}
-              setShowAddressError={setShowAddressError}
-              showTypeError={showTypeError}
-              setShowTypeError={setShowTypeError}
-            />
-          )}
-          {tab === "status" && (
-            <StatusScreen
-              onOpenSidebar={() => setSidebar(true)}
-              activeOrder={orderHistory.find((o) => o.orderNumber === activeOrderNumber) || orderHistory[0]}
-            />
-          )}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={tab}
+              initial={{ opacity: 0, x: tab === "status" ? 20 : -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: tab === "status" ? -20 : 20 }}
+              transition={{ duration: 0.25, ease: "easeInOut" }}
+              className="h-full"
+            >
+              {tab === "home" && (
+                <HomeScreen
+                  onOpenSidebar={() => setSidebar(true)}
+                  orderType={orderType}
+                  isCurrentlyClosed={isCurrentlyClosed}
+                  bypassRealClosed={bypassRealClosed}
+                  setOrderType={setOrderType}
+                  onPickItem={(it) => setSelectedItem(it)}
+                  onOpenCart={() => setCartDrawer(true)}
+                  totalQty={totalQty}
+                  subtotal={subtotal}
+                  onOpenMenu={() => setOverlay("menu")}
+                  hasActiveOrder={hasActiveOrder}
+                  activeOrderNumber={activeOrderNumber}
+                  onGoToStatus={() => setTab("status")}
+                  selectedTable={selectedTable}
+                  setSelectedTable={setSelectedTable}
+                  tables={tables}
+                  onOpenTablePicker={() => setShowTablePicker(true)}
+                  activeOrderType={orderHistory.find((o) => o.orderNumber === activeOrderNumber)?.orderType}
+                  address={address}
+                  setAddress={setAddress}
+                  addressType={addressType}
+                  setAddressType={setAddressType}
+                  deliveryMethod={deliveryMethod}
+                  setDeliveryMethod={setDeliveryMethod}
+                  showAddressError={showAddressError}
+                  setShowAddressError={setShowAddressError}
+                  showTypeError={showTypeError}
+                  setShowTypeError={setShowTypeError}
+                />
+              )}
+              {tab === "status" && (
+                <StatusScreen
+                  onOpenSidebar={() => setSidebar(true)}
+                  activeOrder={orderHistory.find((o) => o.orderNumber === activeOrderNumber) || orderHistory[0]}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         {/* Overlays */}
@@ -766,6 +821,43 @@ function LiffApp() {
                 setSimulateClosed(false);
               }}
               onOpenSidebar={() => setSidebar(true)}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Table Picker — rendered at root overlay level so it always covers everything */}
+        <AnimatePresence>
+          {showTablePicker && (
+            <TablePickerBottomSheet
+              key="table-picker"
+              tables={tables}
+              selectedTable={selectedTable}
+              onSelect={(tableId) => {
+                const prevTable = selectedTable;
+                setSelectedTable(tableId);
+                // Update local state immediately for both old and new tables
+                setTables((prev) =>
+                  prev.map((t) => {
+                    if (t.id === tableId) return { ...t, status: "occupied" };
+                    if (prevTable && t.id === prevTable) return { ...t, status: "available" };
+                    return t;
+                  })
+                );
+                // Update in Supabase (best-effort)
+                if (prevTable && prevTable !== tableId) {
+                  void (supabase as any)
+                    .from("tables")
+                    .update({ status: "available" })
+                    .eq("id", prevTable);
+                }
+                void (supabase as any)
+                  .from("tables")
+                  .update({ status: "occupied" })
+                  .eq("id", tableId);
+                  
+                setTimeout(() => setShowTablePicker(false), 200);
+              }}
+              onClose={() => setShowTablePicker(false)}
             />
           )}
         </AnimatePresence>
@@ -1016,6 +1108,7 @@ function HomeScreen({
   selectedTable,
   setSelectedTable,
   tables,
+  onOpenTablePicker,
   activeOrderType,
   address,
   setAddress,
@@ -1044,6 +1137,7 @@ function HomeScreen({
   selectedTable: string;
   setSelectedTable: (t: string) => void;
   tables: { id: string; label: string; status: string }[];
+  onOpenTablePicker: () => void;
   activeOrderType?: OrderType;
   address: string;
   setAddress: (val: string) => void;
@@ -1069,7 +1163,6 @@ function HomeScreen({
     }
   };
 
-  const [showTablePicker, setShowTablePicker] = useState(false);
   const orderTypeRef = useRef<HTMLDivElement>(null);
 
   return (
@@ -1133,7 +1226,7 @@ function HomeScreen({
                   return;
                 }
                 if (orderType === "dine-in" && !selectedTable) {
-                  setShowTablePicker(true);
+                  onOpenTablePicker();
                   return;
                 }
                 if (orderType === "delivery" && (!address || address.trim().length < 5 || !deliveryMethod)) {
@@ -1191,7 +1284,7 @@ function HomeScreen({
             onClick={() => {
               setOrderType("dine-in");
               setShowTypeError(false);
-              setShowTablePicker(true);
+              onOpenTablePicker();
             }}
             className="rounded-xl p-4 text-left flex flex-col gap-2 cursor-pointer transition active:scale-95"
             style={{ background: orderType === "dine-in" ? BRAND : "white", color: orderType === "dine-in" ? GOLD : BRAND }}
@@ -1250,7 +1343,7 @@ function HomeScreen({
                 />
               )}
               {orderType === "dine-in" && (
-                <DineInBlock selectedTable={selectedTable} onOpenPicker={() => setShowTablePicker(true)} />
+                <DineInBlock selectedTable={selectedTable} onOpenPicker={onOpenTablePicker} />
               )}
             </motion.div>
           </AnimatePresence>
@@ -1289,7 +1382,7 @@ function HomeScreen({
                       return;
                     }
                     if (orderType === "dine-in" && !selectedTable) {
-                      setShowTablePicker(true);
+                      onOpenTablePicker();
                       return;
                     }
                     if (orderType === "delivery" && (!address || address.trim().length < 5 || !deliveryMethod)) {
@@ -1328,7 +1421,7 @@ function HomeScreen({
                             return;
                           }
                           if (orderType === "dine-in" && !selectedTable) {
-                            setShowTablePicker(true);
+                            onOpenTablePicker();
                             return;
                           }
                           if (orderType === "delivery" && (!address || address.trim().length < 5 || !deliveryMethod)) {
@@ -1365,19 +1458,7 @@ function HomeScreen({
       {/* Inline cart removed — using fixed cart bar inside app frame */}
       {/* Persistent CTA when cart empty */}
 
-      <AnimatePresence>
-        {showTablePicker && (
-          <TablePickerBottomSheet
-            tables={tables}
-            selectedTable={selectedTable}
-            onSelect={(tableId) => {
-              setSelectedTable(tableId);
-              setShowTablePicker(false);
-            }}
-            onClose={() => setShowTablePicker(false)}
-          />
-        )}
-      </AnimatePresence>
+      {/* Table picker moved to LiffApp overlay layer */}
     </div>
   );
 }
@@ -1393,217 +1474,146 @@ function TablePickerBottomSheet({
   onSelect: (id: string) => void;
   onClose: () => void;
 }) {
-  const modalRef = useRef<HTMLDivElement | null>(null);
-  const touchStartY = useRef<number | null>(null);
-
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches?.[0]?.clientY ?? null;
-  };
-
-  const onTouchMoveModal = (e: React.TouchEvent) => {
-    if (!modalRef.current) return;
-    const startY = touchStartY.current;
-    if (startY == null) return;
-    const currentY = e.touches?.[0]?.clientY ?? 0;
-    const delta = currentY - startY;
-    // if at top of scroll and pulling down, prevent default to stop rubber-band
-    if (modalRef.current.scrollTop <= 0 && delta > 0) {
-      e.preventDefault();
-    }
-  };
-
   const [tableFilter, setTableFilter] = useState<"all" | "available" | "occupied">("all");
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
 
   const displayTables = useMemo(() => {
-    let list = [...tables].sort((a, b) => Number(a.id) - Number(b.id));
-    if (tableFilter === "available") {
-      return list.filter((t) => t.status === "available");
-    } else if (tableFilter === "occupied") {
-      return list.filter((t) => t.status === "occupied");
-    }
+    const list = [...tables].sort((a, b) => Number(a.id) - Number(b.id));
+    if (tableFilter === "available") return list.filter((t) => t.status === "available");
+    if (tableFilter === "occupied") return list.filter((t) => t.status === "occupied");
     return list;
   }, [tables, tableFilter]);
 
   return (
     <>
+      {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        onClick={() => {
-          onClose();
-        }}
-        onTouchMove={(e) => e.preventDefault()}
-        onWheel={(e) => e.preventDefault()}
-        className="absolute inset-0 bg-black/65 backdrop-blur-sm z-40"
-        style={{ touchAction: "none" }}
+        onClick={onClose}
+        className="absolute inset-0 z-40 bg-black/60 backdrop-blur-sm"
       />
-      <motion.div
-        initial={{ y: "100%" }}
-        animate={{ y: 0 }}
-        exit={{ y: "100%" }}
-        transition={{ type: "spring", damping: 30, stiffness: 280 }}
-        className="absolute inset-x-0 bottom-0 top-10 z-50 rounded-t-3xl bg-white p-5 shadow-2xl overflow-y-auto"
-        style={{ minHeight: "70vh", overscrollBehavior: "none", WebkitOverflowScrolling: "touch", overflowY: 'auto' }}
-        ref={modalRef}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMoveModal}
-      >
-        <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-slate-200" />
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400 font-semibold">เลือกโต๊ะ</p>
-            <h2 className="text-base font-bold text-slate-800">ผังที่นั่ง</h2>
-          </div>
-          
-          {/* Custom Dropdown Filter */}
-          <div className="relative">
-            <button
-              onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-              className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm text-xs font-bold text-slate-700 cursor-pointer transition hover:bg-slate-100/80 active:scale-95 select-none"
-            >
-              {tableFilter === "all" && (
-                <>
-                  <span className="h-2 w-2 rounded-full bg-slate-400 shrink-0" />
-                  <span>ทั้งหมด</span>
-                </>
-              )}
-              {tableFilter === "available" && (
-                <>
-                  <span className="h-2 w-2 rounded-full bg-[#15803d] shrink-0" />
-                  <span className="text-[#15803d]">โต๊ะว่าง</span>
-                </>
-              )}
-              {tableFilter === "occupied" && (
-                <>
-                  <span className="h-2 w-2 rounded-full bg-[#dc2626] shrink-0" />
-                  <span className="text-[#dc2626]">เต็ม</span>
-                </>
-              )}
-              <ChevronRight size={12} className={`text-slate-400 transition-transform ${showFilterDropdown ? "rotate-90" : ""}`} />
-            </button>
 
-            <AnimatePresence>
-              {showFilterDropdown && (
-                <>
-                  {/* Local overlay to close dropdown */}
-                  <div
-                    onClick={() => setShowFilterDropdown(false)}
-                    className="fixed inset-0 z-10 cursor-default"
-                  />
-                  {/* Dropdown list */}
-                  <motion.div
-                    initial={{ opacity: 0, y: -4, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -4, scale: 0.95 }}
-                    transition={{ duration: 0.12 }}
-                    className="absolute right-0 mt-1.5 w-28 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-20 space-y-0.5"
-                  >
-                    {[
-                      { id: "all", label: "ทั้งหมด", color: "bg-slate-400" },
-                      { id: "available", label: "โต๊ะว่าง", color: "bg-[#15803d]" },
-                      { id: "occupied", label: "เต็ม", color: "bg-[#dc2626]" },
-                    ].map((opt) => (
-                      <button
-                        key={opt.id}
-                        onClick={() => {
-                          setTableFilter(opt.id as any);
-                          setShowFilterDropdown(false);
-                        }}
-                        className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-xs font-bold transition hover:bg-slate-50 cursor-pointer"
-                        style={{
-                          color: tableFilter === opt.id ? BRAND : "#64748b"
-                        }}
-                      >
-                        <span className={`h-2 w-2 rounded-full shrink-0 ${opt.color}`} />
-                        <span>{opt.label}</span>
-                      </button>
-                    ))}
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>
-          </div>
-
-          <button
-            onClick={() => onClose()}
-            className="text-slate-500 text-sm font-semibold hover:text-slate-800"
-            title={selectedTable ? "ปิด" : "ปิด"}
-          >
-            ปิด
-          </button>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          {displayTables.length === 0 ? (
-            <div className="col-span-2 text-center py-12 flex flex-col items-center justify-center">
-              <p className="text-sm font-semibold text-slate-500">ไม่พบโต๊ะในสถานะนี้</p>
+      {/* Modal Container — perfectly centered */}
+      <div className="absolute inset-0 z-50 flex items-center justify-center px-4 pointer-events-none">
+        <motion.div
+          initial={{ opacity: 0, y: 30, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 20, scale: 0.95 }}
+          transition={{ type: "spring", damping: 25, stiffness: 350 }}
+          className="w-full max-w-[360px] rounded-[28px] bg-white shadow-2xl flex flex-col pointer-events-auto"
+          style={{ maxHeight: "85vh" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3 flex-shrink-0 border-b border-slate-100">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400 font-semibold">เลือกโต๊ะ</p>
+              <h2 className="text-base font-bold text-slate-800">ผังที่นั่ง</h2>
             </div>
-          ) : (
-            displayTables.map((table) => {
-            const available = table.status === "available";
-            const isOccupied = table.status === "occupied";
-            const statusLabel = available ? "ว่าง" : "ไม่ว่าง";
-            const statusStyle: React.CSSProperties =
-              available
-                ? { background: "#bbf7d0", color: "#14532d", padding: "4px 8px", borderRadius: 9999, fontSize: 11, fontWeight: 700 }
-                : { background: "#fecaca", color: "#7f1d1d", padding: "4px 8px", borderRadius: 9999, fontSize: 11, fontWeight: 700 };
 
-            // Light pastel background + dark border per status
-            const boxBg = selectedTable === table.id
-              ? BRAND
-              : available
-                ? "#dcfce7"   // green-100
-                : "#fee2e2";  // red-100
+            <motion.button
+              whileTap={{ scale: 0.85 }}
+              onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors shrink-0"
+            >
+              <X size={15} />
+            </motion.button>
+          </div>
 
-            const boxBorder = selectedTable === table.id
-              ? BRAND
-              : available
-                ? "#15803d"   // green-700
-                : "#dc2626";  // red-600
-
-            const boxText = selectedTable === table.id ? GOLD : available ? "#14532d" : "#7f1d1d";
-            const boxSubText = selectedTable === table.id ? "rgba(252,193,74,0.7)" : available ? "#166534" : "#991b1b";
-
-            return (
-              <button
-                key={table.id}
-                disabled={!available}
-                onClick={() => available && onSelect(table.id)}
-                className="rounded-2xl p-4 text-left transition active:scale-95"
+          {/* Filter */}
+          <div className="px-4 py-3 flex gap-2 flex-shrink-0">
+            {[
+              { id: "all", label: "ทั้งหมด", dot: "#94a3b8" },
+              { id: "available", label: "ว่าง", dot: "#15803d" },
+              { id: "occupied", label: "ไม่ว่าง", dot: "#dc2626" },
+            ].map((opt) => (
+              <motion.button
+                key={opt.id}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setTableFilter(opt.id as any)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all flex-1 justify-center"
                 style={{
-                  background: boxBg,
-                  color: boxText,
-                  border: `2px solid ${boxBorder}`,
-                  opacity: !available && selectedTable !== table.id ? 0.9 : 1,
+                  background: tableFilter === opt.id ? BRAND : "#f8fafc",
+                  color: tableFilter === opt.id ? "white" : "#64748b",
+                  borderColor: tableFilter === opt.id ? BRAND : "#e2e8f0",
                 }}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-sm">{table.label}</span>
-                  <span style={statusStyle}>{statusLabel}</span>
-                </div>
-                <p className="mt-2 text-xs" style={{ color: boxSubText }}>พื้นที่นั่งสบายสำหรับ 2-4 คน</p>
-              </button>
-            );
-          })
-        )}
-        </div>
-        <div className="mt-5 rounded-2xl bg-slate-50 p-4">
-          <p className="text-sm font-semibold text-slate-700">สถานะโต๊ะ</p>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs">
-            <span style={{ background: "#dcfce7", color: "#14532d", border: "2px solid #15803d", padding: "5px 14px", borderRadius: 9999, fontWeight: 700 }}>ว่าง</span>
-            <span style={{ background: "#fee2e2", color: "#7f1d1d", border: "2px solid #dc2626", padding: "5px 14px", borderRadius: 9999, fontWeight: 700 }}>ไม่ว่าง</span>
+                <span
+                  className="h-1.5 w-1.5 rounded-full shrink-0"
+                  style={{ background: tableFilter === opt.id ? "white" : opt.dot }}
+                />
+                {opt.label}
+              </motion.button>
+            ))}
           </div>
-        </div>
-      </motion.div>
+
+          {/* Scrollable table grid */}
+          <div className="overflow-y-auto flex-1 px-4 pb-5">
+            <div className="grid grid-cols-2 gap-3">
+              {displayTables.length === 0 ? (
+                <div className="col-span-2 text-center py-8">
+                  <p className="text-sm font-semibold text-slate-400">ไม่พบข้อมูลโต๊ะ</p>
+                </div>
+              ) : (
+                displayTables.map((table) => {
+                  const available = table.status === "available";
+                  const isSelected = selectedTable === table.id;
+
+                  const boxBg = isSelected ? BRAND : available ? "#dcfce7" : "#fee2e2";
+                  const boxBorder = isSelected ? BRAND : available ? "#15803d" : "#dc2626";
+                  const boxText = isSelected ? GOLD : available ? "#14532d" : "#7f1d1d";
+                  const boxSub = isSelected ? "rgba(252,193,74,0.7)" : available ? "#166534" : "#991b1b";
+                  const badgeBg = isSelected ? "rgba(252,193,74,0.2)" : available ? "#bbf7d0" : "#fecaca";
+                  const badgeText = isSelected ? GOLD : available ? "#14532d" : "#7f1d1d";
+
+                  return (
+                    <motion.button
+                      key={table.id}
+                      disabled={!available && !isSelected}
+                      onClick={() => available && onSelect(table.id)}
+                      className="rounded-2xl p-4 text-left relative overflow-hidden"
+                      style={{
+                        background: boxBg,
+                        color: boxText,
+                        border: `2px solid ${boxBorder}`,
+                        opacity: !available && !isSelected ? 0.8 : 1,
+                        cursor: available ? "pointer" : "not-allowed",
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-sm">{table.label}</span>
+                        <span
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+                          style={{ background: badgeBg, color: badgeText }}
+                        >
+                          {isSelected ? "เลือกแล้ว" : available ? "ว่าง" : "ไม่ว่าง"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs" style={{ color: boxSub }}>
+                        2-4 คน
+                      </p>
+                    </motion.button>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Legend */}
+            <div className="mt-4 rounded-xl bg-slate-50 px-3 py-2.5 flex items-center gap-3">
+              <p className="text-[11px] font-semibold text-slate-500">สถานะโต๊ะ:</p>
+              <div className="flex gap-2">
+                <span className="flex items-center gap-1 text-[10px] font-bold text-[#14532d] bg-[#dcfce7] px-2 py-0.5 rounded-full border border-[#15803d]">
+                  ว่าง
+                </span>
+                <span className="flex items-center gap-1 text-[10px] font-bold text-[#7f1d1d] bg-[#fee2e2] px-2 py-0.5 rounded-full border border-[#dc2626]">
+                  ไม่ว่าง
+                </span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
     </>
   );
 }

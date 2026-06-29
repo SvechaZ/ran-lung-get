@@ -61,18 +61,18 @@ function RootRedirector() {
         const { data, error } = await query;
         
         if (!error && data) {
-          role = data.role;
+          role = (data as any).role as string;
         }
 
         if (cancelled) return;
 
         // 5. เปลี่ยนเส้นทางไปยังหน้า Dashboard ของแต่ละ Role
         if (role === "admin") {
-          navigate({ to: "/admin/" });
+          navigate({ to: "/admin" });
         } else if (role === "staff") {
-          navigate({ to: "/staff/" });
+          navigate({ to: "/staff" });
         } else {
-          navigate({ to: "/customer/" });
+          navigate({ to: "/customer" });
         }
 
       } catch (err) {
